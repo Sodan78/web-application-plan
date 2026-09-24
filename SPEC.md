@@ -348,7 +348,8 @@ type Checkin = {
 ### 1. Home, once paired
 Top to bottom:
 1. **Assessment not done:** card "Before your first check-in" — "A short questionnaire about how you tend to feel in your relationship. About two minutes. There are no right answers, and you won't get a score or a label." **Start**.
-2. **Check-in open for me:** "Your check-in is in progress." **Continue**. If the partner has finished: add "{name} has finished theirs."
+2. **Check-in open for me:** "Your check-in is open." **Start writing** (or, once I've written something, "Your check-in is in progress." **Continue**). If the partner has finished: add "{name} has finished theirs."
+   If I've finished and my partner hasn't: "You've finished this week's check-in. {name} hasn't finished yet." **See what you shared**.
 3. **Check-in due, none open:** "It's time for your weekly check-in." **Start check-in**.
 4. **Not due:** "Next check-in: {weekday, date}." + **Start one now** (secondary).
 5. **Recent check-ins:** up to 5, each with date and status, linking to the joint view.
@@ -409,7 +410,7 @@ Assessment
 - **AC-2.1** No repository function returns assessment answers or scores; the UI can only learn whether it's completed.
 - **AC-2.2** Saving requires exactly 9 integer answers from 1 to 7; scores match the scoring rule, including reverse-scored items.
 - **AC-2.3** No screen shows a score, a style name or a type after the assessment (P2).
-- **AC-2.4** A check-in can't be started before the viewer has completed the assessment.
+- **AC-2.4** A check-in can't be started or written in before the viewer has completed the assessment.
 
 Check-ins
 - **AC-2.5** Only one open check-in per couple; starting again returns the open one.

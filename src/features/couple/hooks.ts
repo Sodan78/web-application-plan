@@ -48,8 +48,8 @@ export function useEndNotice() {
  * A repository write for the viewer. Any write can change what every query shows
  * (pairing cancels requests, ends notices, …), so refetch everything afterwards.
  */
-export function useViewerMutation<TArgs>(
-  fn: (viewerId: string, args: TArgs) => Promise<unknown>,
+export function useViewerMutation<TArgs, TData = unknown>(
+  fn: (viewerId: string, args: TArgs) => Promise<TData>,
   options: { success?: (args: TArgs) => string | undefined } = {},
 ) {
   const viewerId = useViewerId()
@@ -63,4 +63,41 @@ export function useViewerMutation<TArgs>(
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Something went wrong'),
   })
+}
+
+export function useAssessmentDone() {
+  const viewerId = useViewerId()
+  return useQuery({ queryKey: ['assessmentDone', viewerId], queryFn: () => repo.hasCompletedAssessment(viewerId) })
+}
+
+export function useCheckinStatus() {
+  const viewerId = useViewerId()
+  return useQuery({ queryKey: ['checkinStatus', viewerId], queryFn: () => repo.getCheckinStatus(viewerId) })
+}
+
+export function useCheckins() {
+  const viewerId = useViewerId()
+  return useQuery({ queryKey: ['checkins', viewerId], queryFn: () => repo.listCheckins(viewerId) })
+}
+
+export function useCheckin(checkinId: string) {
+  const viewerId = useViewerId()
+  return useQuery({
+    queryKey: ['checkin', viewerId, checkinId],
+    queryFn: () => repo.getCheckin(viewerId, checkinId),
+    retry: false,
+  })
+}
+
+export function useMyReflections(checkinId: string) {
+  const viewerId = useViewerId()
+  return useQuery({
+    queryKey: ['reflections', viewerId, checkinId],
+    queryFn: () => repo.listMyReflections(viewerId, checkinId),
+  })
+}
+
+export function useShares(checkinId: string) {
+  const viewerId = useViewerId()
+  return useQuery({ queryKey: ['shares', viewerId, checkinId], queryFn: () => repo.listShares(viewerId, checkinId) })
 }

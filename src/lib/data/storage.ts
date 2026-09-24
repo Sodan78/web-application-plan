@@ -17,15 +17,22 @@ export const emptyDatabase = (): Database => ({
   shares: [],
   consents: [],
   pairRequests: [],
+  assessments: [],
 })
+
+/** Fills in collections and fields added after data was first saved. */
+function normalize(raw: Partial<Database>): Database {
+  const db = { ...emptyDatabase(), ...raw }
+  db.checkins = db.checkins.map((c) => ({ ...c, completedBy: c.completedBy ?? [], closedAt: c.closedAt ?? null }))
+  return db
+}
 
 export function browserStorage(): Storage {
   return {
     load() {
       try {
         const raw = window.localStorage.getItem(KEY)
-        // Spread over an empty db so data saved before new collections existed still loads.
-        return raw ? { ...emptyDatabase(), ...(JSON.parse(raw) as Partial<Database>) } : null
+        return raw ? normalize(JSON.parse(raw) as Partial<Database>) : null
       } catch {
         return null
       }
@@ -43,7 +50,7 @@ export function browserStorage(): Storage {
 export function memoryStorage(initial: Database | null = null): Storage {
   let data = initial
   return {
-    load: () => data,
+    load: () => (data ? normalize(data) : null),
     save: (db) => {
       data = structuredClone(db)
     },

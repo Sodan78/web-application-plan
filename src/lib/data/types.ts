@@ -16,6 +16,21 @@ export type Couple = {
   endedBy?: Id | null
   /** Internal: members who have seen the "link has ended" notice. */
   endNoticeSeenBy?: Id[]
+  /** Day of the weekly check-in, 0 = Sunday (FR-8). */
+  checkinWeekday?: Weekday
+}
+
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
+
+/** Private to its owner. Answers and scores never leave the repository (AC-2.1). */
+export type Assessment = {
+  id: Id
+  userId: Id
+  instrument: 'ECR-RS-partner'
+  version: 1
+  answers: number[]
+  scores: { avoidance: number; anxiety: number }
+  completedAt: string
 }
 
 export type ConsentPurpose = 'store_reflections' | 'ai_insights' | 'therapist_access'
@@ -55,6 +70,28 @@ export type Checkin = {
   id: Id
   coupleId: Id
   createdAt: string
+  /** Members who have finished. */
+  completedBy: Id[]
+  /** Set when both have finished, or when it auto-closes after 14 days. */
+  closedAt: string | null
+}
+
+/** What a viewer sees of a check-in. */
+export type CheckinView = {
+  id: Id
+  createdAt: string
+  closedAt: string | null
+  myStatus: 'not_started' | 'in_progress' | 'finished'
+  partnerFinished: boolean
+  /** False once the couple has ended: read-only from then on. */
+  coupleActive: boolean
+}
+
+export type CheckinStatus = {
+  due: boolean
+  nextDate: string
+  weekday: Weekday
+  open: CheckinView | null
 }
 
 export type PromptKey = 'situation' | 'feeling' | 'need' | 'action'
@@ -73,6 +110,8 @@ export type Reflection = {
 export type Share = {
   id: Id
   reflectionId: Id
+  /** Copied from the reflection, so the partner never needs to read it. */
+  prompt: PromptKey
   checkinId: Id
   coupleId: Id
   authorId: Id
@@ -90,4 +129,5 @@ export type Database = {
   shares: Share[]
   consents: Consent[]
   pairRequests: PairRequest[]
+  assessments: Assessment[]
 }

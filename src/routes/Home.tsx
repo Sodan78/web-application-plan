@@ -1,3 +1,4 @@
+import { ButtonLink } from '@/components/ButtonLink'
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -11,10 +12,20 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useCouple, useEndNotice, usePairRequests, useViewerMutation } from '@/features/couple/hooks'
+import { formatDate } from '@/features/checkin/copy'
+import {
+  useAssessmentDone,
+  useCheckins,
+  useCheckinStatus,
+  useCouple,
+  useEndNotice,
+  usePairRequests,
+  useViewerMutation,
+} from '@/features/couple/hooks'
 import { InviteDialog } from '@/features/couple/InviteDialog'
-import { repo, type PairRequestView } from '@/lib/data'
+import { repo, type CheckinView, type PairRequestView } from '@/lib/data'
 
 export function Home() {
   const couple = useCouple()
@@ -45,13 +56,7 @@ export function Home() {
       ))}
 
       {couple.data ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>You're linked with {couple.data.partner.displayName}.</CardTitle>
-            <CardDescription>Your reflections stay private unless you choose to share them.</CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">Check-ins arrive in the next phase.</CardContent>
-        </Card>
+        <PairedHome partnerName={couple.data.partner.displayName} />
       ) : outgoing ? (
         <OutgoingRequest request={outgoing} />
       ) : (
@@ -118,6 +123,129 @@ function OutgoingRequest({ request }: { request: PairRequestView }) {
         <Button variant="outline" disabled={cancel.isPending} onClick={() => cancel.mutate()}>
           Cancel request
         </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+function PairedHome({ partnerName }: { partnerName: string }) {
+  const navigate = useNavigate()
+  const assessmentDone = useAssessmentDone()
+  const status = useCheckinStatus()
+  const checkins = useCheckins()
+  const start = useViewerMutation<void, CheckinView>((viewerId) => repo.startCheckin(viewerId))
+  const startAndGo = () => start.mutate(undefined, { onSuccess: (checkin) => navigate(`/checkin/${checkin.id}`) })
+
+  if (assessmentDone.isPending || status.isPending || checkins.isPending) return null
+
+  const open = status.data?.open
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>You're linked with {partnerName}.</CardTitle>
+          <CardDescription>Your reflections stay private unless you choose to share them.</CardDescription>
+        </CardHeader>
+      </Card>
+
+      {!assessmentDone.data ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Before your first check-in</CardTitle>
+            <CardDescription>
+              A short questionnaire about how you tend to feel in your relationship. About two minutes. There are no
+              right answers, and you won't get a score or a label.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ButtonLink to="/assessment">
+              Start
+            </ButtonLink>
+          </CardContent>
+        </Card>
+      ) : open && open.myStatus !== 'finished' ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {open.myStatus === 'not_started' ? 'Your check-in is open.' : 'Your check-in is in progress.'}
+            </CardTitle>
+            {open.partnerFinished && <CardDescription>{partnerName} has finished theirs.</CardDescription>}
+          </CardHeader>
+          <CardContent>
+            <ButtonLink to={`/checkin/${open.id}`}>{open.myStatus === 'not_started' ? 'Start writing' : 'Continue'}</ButtonLink>
+          </CardContent>
+        </Card>
+      ) : open ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>You've finished this week's check-in.</CardTitle>
+            <CardDescription>
+              {partnerName} hasn't finished yet. Their shares will appear when they do.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ButtonLink variant="outline" to={`/checkin/${open.id}/together`}>
+              See what you shared
+            </ButtonLink>
+          </CardContent>
+        </Card>
+      ) : status.data?.due ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>It's time for your weekly check-in.</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button disabled={start.isPending} onClick={startAndGo}>
+              Start check-in
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Next check-in: {status.data && formatDate(status.data.nextDate)}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" disabled={start.isPending} onClick={startAndGo}>
+              Start one now
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {checkins.data && checkins.data.length > 0 && <RecentCheckins checkins={checkins.data.slice(0, 5)} />}
+    </>
+  )
+}
+
+const STATUS_TEXT: Record<CheckinView['myStatus'], string> = {
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  finished: 'Finished',
+}
+
+function RecentCheckins({ checkins }: { checkins: CheckinView[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent check-ins</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="grid gap-2">
+          {checkins.map((c) => (
+            <li key={c.id}>
+              <Link
+                to={c.myStatus === 'finished' || c.closedAt ? `/checkin/${c.id}/together` : `/checkin/${c.id}`}
+                className="flex justify-between gap-2 rounded-md p-2 text-sm hover:bg-muted"
+              >
+                <span>{formatDate(c.createdAt)}</span>
+                <span className="text-muted-foreground">
+                  {c.closedAt && c.myStatus !== 'finished' ? 'Closed' : STATUS_TEXT[c.myStatus]}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </CardContent>
     </Card>
   )

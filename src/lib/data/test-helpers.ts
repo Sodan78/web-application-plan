@@ -24,3 +24,12 @@ export async function pairUp(repo: Repository, a: string, b: string) {
   const [request] = await repo.listPairRequests(b)
   await repo.respondToPair(b, request.id, true)
 }
+
+export const NEUTRAL_ANSWERS = [4, 4, 4, 4, 4, 4, 4, 4, 4]
+
+/** Consent given and questionnaire done: ready for check-ins. */
+export async function readyProfile(repo: Repository, name: string) {
+  const id = await consentingProfile(repo, name)
+  await repo.saveAssessment(id, NEUTRAL_ANSWERS)
+  return id
+}

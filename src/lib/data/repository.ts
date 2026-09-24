@@ -1,6 +1,9 @@
+import { isValidEcrRsAnswers, scoreEcrRs } from './scoring'
 import { emptyDatabase, type Storage } from './storage'
 import type {
   Checkin,
+  CheckinStatus,
+  CheckinView,
   Consent,
   ConsentPurpose,
   Couple,
@@ -12,13 +15,25 @@ import type {
   PromptKey,
   Reflection,
   Share,
+  Weekday,
 } from './types'
 
 export class AccessError extends Error {}
 
 /** Version of the consent text users agree to. Bump when the wording changes. */
 export const CONSENT_VERSION = 1
-const PAIR_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+const PAIR_REQUEST_TTL_MS = 7 * DAY_MS
+const CHECKIN_TTL_MS = 14 * DAY_MS
+const DEFAULT_WEEKDAY: Weekday = 0
+
+/** Start (local midnight) of the latest date on or before `from` that falls on `weekday`. */
+function mostRecentWeekday(from: Date, weekday: Weekday): Date {
+  const d = new Date(from)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - ((d.getDay() - weekday + 7) % 7))
+  return d
+}
 
 /**
  * The only way the app reads or writes data. Every call takes the viewer's id,
@@ -26,7 +41,7 @@ const PAIR_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000
  * When a real backend arrives, these rules move to the server.
  */
 export function createRepository(storage: Storage, now = () => new Date().toISOString()) {
-  const db: Database = storage.load() ?? emptyDatabase()
+  let db: Database = storage.load() ?? emptyDatabase()
 
   const commit = () => storage.save(db)
   const id = () => crypto.randomUUID()
@@ -75,6 +90,47 @@ export function createRepository(storage: Storage, now = () => new Date().toISOS
         r.status = 'cancelled'
         r.resolvedAt = now()
       }
+    }
+  }
+
+  const openCheckinOf = (coupleId: Id): Checkin | undefined =>
+    db.checkins.find((c) => c.coupleId === coupleId && c.closedAt === null)
+
+  /** Open check-ins older than 14 days close without sharing drafts (AC-2.13). */
+  const closeStale = () => {
+    const cutoff = Date.parse(now()) - CHECKIN_TTL_MS
+    let changed = false
+    for (const c of db.checkins) {
+      if (c.closedAt === null && Date.parse(c.createdAt) <= cutoff) {
+        c.closedAt = now()
+        changed = true
+      }
+    }
+    if (changed) commit()
+  }
+
+  const requireAssessment = (userId: Id) => {
+    if (!db.assessments.some((a) => a.userId === userId)) throw new AccessError('Complete the questionnaire first')
+  }
+
+  const requireWritable = (viewerId: Id, checkin: Checkin) => {
+    const couple = db.couples.find((c) => c.id === checkin.coupleId)
+    if (couple?.status !== 'active') throw new AccessError('This couple has ended')
+    if (checkin.closedAt !== null) throw new AccessError('This check-in is closed')
+    if (checkin.completedBy.includes(viewerId)) throw new AccessError('You have finished this check-in')
+  }
+
+  const view = (viewerId: Id, checkin: Checkin): CheckinView => {
+    const couple = db.couples.find((c) => c.id === checkin.coupleId)
+    const partnerId = couple?.memberIds.find((m) => m !== viewerId)
+    const started = db.reflections.some((r) => r.checkinId === checkin.id && r.authorId === viewerId)
+    return {
+      id: checkin.id,
+      createdAt: checkin.createdAt,
+      closedAt: checkin.closedAt,
+      myStatus: checkin.completedBy.includes(viewerId) ? 'finished' : started ? 'in_progress' : 'not_started',
+      partnerFinished: partnerId ? checkin.completedBy.includes(partnerId) : false,
+      coupleActive: couple?.status === 'active',
     }
   }
 
@@ -243,71 +299,162 @@ export function createRepository(storage: Storage, now = () => new Date().toISOS
       commit()
     },
 
-    // Check-ins
-    async startCheckin(viewerId: Id): Promise<Checkin> {
+    // Assessment (FR-5..7): answers and scores never leave the repository.
+    async hasCompletedAssessment(viewerId: Id): Promise<boolean> {
+      return db.assessments.some((a) => a.userId === viewerId)
+    },
+
+    async saveAssessment(viewerId: Id, answers: number[]): Promise<void> {
+      requireStoreConsent(viewerId)
+      if (!isValidEcrRsAnswers(answers)) throw new AccessError('Expected 9 answers from 1 to 7')
+      db.assessments = db.assessments.filter((a) => a.userId !== viewerId)
+      db.assessments.push({
+        id: id(),
+        userId: viewerId,
+        instrument: 'ECR-RS-partner',
+        version: 1,
+        answers: [...answers],
+        scores: scoreEcrRs(answers),
+        completedAt: now(),
+      })
+      commit()
+    },
+
+    // Check-ins (FR-8..13)
+    async setCheckinWeekday(viewerId: Id, weekday: Weekday): Promise<void> {
+      const couple = activeCoupleOf(viewerId)
+      if (!couple) throw new AccessError('No active couple')
+      if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) throw new AccessError('Invalid weekday')
+      couple.checkinWeekday = weekday
+      commit()
+    },
+
+    async getCheckinStatus(viewerId: Id): Promise<CheckinStatus | null> {
+      closeStale()
+      const couple = activeCoupleOf(viewerId)
+      if (!couple) return null
+      const weekday = couple.checkinWeekday ?? DEFAULT_WEEKDAY
+      const lastScheduled = mostRecentWeekday(new Date(now()), weekday)
+      const open = openCheckinOf(couple.id)
+      const startedSince = db.checkins.some(
+        (c) => c.coupleId === couple.id && Date.parse(c.createdAt) >= lastScheduled.getTime(),
+      )
+      const next = new Date(lastScheduled)
+      next.setDate(next.getDate() + 7)
+      return {
+        due: !open && !startedSince,
+        nextDate: next.toISOString(),
+        weekday,
+        open: open ? view(viewerId, open) : null,
+      }
+    },
+
+    async startCheckin(viewerId: Id): Promise<CheckinView> {
+      closeStale()
       requireStoreConsent(viewerId)
       const couple = activeCoupleOf(viewerId)
       if (!couple) throw new AccessError('Pair with your partner first')
-      const checkin = { id: id(), coupleId: couple.id, createdAt: now() }
+      requireAssessment(viewerId)
+      const open = openCheckinOf(couple.id)
+      if (open) return view(viewerId, open)
+      const checkin: Checkin = { id: id(), coupleId: couple.id, createdAt: now(), completedBy: [], closedAt: null }
       db.checkins.push(checkin)
       commit()
-      return checkin
+      return view(viewerId, checkin)
     },
 
-    async listCheckins(viewerId: Id): Promise<Checkin[]> {
+    async getCheckin(viewerId: Id, checkinId: Id): Promise<CheckinView> {
+      closeStale()
+      return view(viewerId, requireCheckinAccess(viewerId, checkinId))
+    },
+
+    /** Newest first. */
+    async listCheckins(viewerId: Id): Promise<CheckinView[]> {
+      closeStale()
       const coupleIds = db.couples.filter((c) => c.memberIds.includes(viewerId)).map((c) => c.id)
-      return db.checkins.filter((c) => coupleIds.includes(c.coupleId))
+      return db.checkins
+        .filter((c) => coupleIds.includes(c.coupleId))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((c) => view(viewerId, c))
     },
 
     // Reflections: author only
-    async saveReflection(viewerId: Id, checkinId: Id, prompt: PromptKey, body: string): Promise<Reflection> {
+    /** One per prompt; saving again replaces it, empty text removes it (AC-2.6). */
+    async saveReflection(viewerId: Id, checkinId: Id, prompt: PromptKey, body: string): Promise<void> {
+      closeStale()
       requireStoreConsent(viewerId)
-      requireCheckinAccess(viewerId, checkinId)
-      const reflection = { id: id(), checkinId, authorId: viewerId, prompt, body, createdAt: now() }
-      db.reflections.push(reflection)
+      requireAssessment(viewerId)
+      requireWritable(viewerId, requireCheckinAccess(viewerId, checkinId))
+      const existing = db.reflections.find(
+        (r) => r.checkinId === checkinId && r.authorId === viewerId && r.prompt === prompt,
+      )
+      const text = body.trim()
+      if (!text) {
+        if (existing) db.reflections = db.reflections.filter((r) => r !== existing)
+      } else if (existing) {
+        existing.body = text
+      } else {
+        db.reflections.push({ id: id(), checkinId, authorId: viewerId, prompt, body: text, createdAt: now() })
+      }
       commit()
-      return reflection
     },
 
     async listMyReflections(viewerId: Id, checkinId: Id): Promise<Reflection[]> {
       return db.reflections.filter((r) => r.authorId === viewerId && r.checkinId === checkinId)
     },
 
-    // Shares
-    async share(viewerId: Id, reflectionId: Id, body: string): Promise<Share> {
-      const reflection = db.reflections.find((r) => r.id === reflectionId)
-      if (!reflection || reflection.authorId !== viewerId) throw new AccessError('Not your reflection')
-      const checkin = requireCheckinAccess(viewerId, reflection.checkinId)
-      const share: Share = {
-        id: id(),
-        reflectionId,
-        checkinId: checkin.id,
-        coupleId: checkin.coupleId,
-        authorId: viewerId,
-        body,
-        sharedAt: now(),
-        withdrawnAt: null,
+    /** Shares the chosen items and marks the viewer finished, all or nothing (AC-2.8). */
+    async finishCheckin(viewerId: Id, checkinId: Id, shares: { prompt: PromptKey; body: string }[]): Promise<void> {
+      closeStale()
+      const checkin = requireCheckinAccess(viewerId, checkinId)
+      requireWritable(viewerId, checkin)
+      const mine = db.reflections.filter((r) => r.checkinId === checkinId && r.authorId === viewerId)
+      if (mine.length === 0) throw new AccessError('Write at least one answer first')
+      const toShare = shares.map((s) => {
+        const reflection = mine.find((r) => r.prompt === s.prompt)
+        const body = s.body.trim()
+        if (!reflection || !body) throw new AccessError('Can only share an answer you wrote')
+        return { reflection, body }
+      })
+
+      for (const { reflection, body } of toShare) {
+        db.shares.push({
+          id: id(),
+          reflectionId: reflection.id,
+          prompt: reflection.prompt,
+          checkinId,
+          coupleId: checkin.coupleId,
+          authorId: viewerId,
+          body,
+          sharedAt: now(),
+          withdrawnAt: null,
+        })
       }
-      db.shares.push(share)
+      checkin.completedBy.push(viewerId)
+      const couple = db.couples.find((c) => c.id === checkin.coupleId)
+      if (couple?.memberIds.every((m) => checkin.completedBy.includes(m))) checkin.closedAt = now()
       commit()
-      return share
     },
 
     async withdrawShare(viewerId: Id, shareId: Id): Promise<void> {
       const share = db.shares.find((s) => s.id === shareId)
       if (!share || share.authorId !== viewerId) throw new AccessError('Not your share')
-      share.withdrawnAt = now()
+      share.withdrawnAt ??= now()
       commit()
     },
 
-    /** Own shares always; partner's only while the couple is active and not withdrawn. */
+    /**
+     * Own shares always (including taken-back ones, so the author sees "You took this back").
+     * Partner's only after the viewer has finished, while not withdrawn and the couple is active.
+     */
     async listShares(viewerId: Id, checkinId: Id): Promise<Share[]> {
       const checkin = requireCheckinAccess(viewerId, checkinId)
       const coupleActive = db.couples.find((c) => c.id === checkin.coupleId)?.status === 'active'
+      const viewerFinished = checkin.completedBy.includes(viewerId)
       return db.shares.filter(
         (s) =>
           s.checkinId === checkinId &&
-          (s.authorId === viewerId || (coupleActive && s.withdrawnAt === null)),
+          (s.authorId === viewerId || (coupleActive && viewerFinished && s.withdrawnAt === null)),
       )
     },
   }

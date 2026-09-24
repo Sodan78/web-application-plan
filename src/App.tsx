@@ -6,11 +6,14 @@ import { RequireAuth } from '@/features/auth/RequireAuth'
 import { RequireConsent } from '@/features/auth/RequireConsent'
 import { SessionProvider } from '@/features/auth/session'
 import { queryClient } from '@/lib/query-client'
+import { Assessment } from '@/routes/Assessment'
+import { Checkin } from '@/routes/Checkin'
 import { Consent } from '@/routes/Consent'
 import { Home } from '@/routes/Home'
 import { NotFound } from '@/routes/NotFound'
 import { Settings } from '@/routes/Settings'
 import { SignIn } from '@/routes/SignIn'
+import { Together } from '@/routes/Together'
 
 export default function App() {
   return (
@@ -25,6 +28,9 @@ export default function App() {
                 <Route element={<RequireConsent />}>
                   <Route path="/" element={<Home />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/assessment" element={<Assessment />} />
+                  <Route path="/checkin/:id" element={<Checkin />} />
+                  <Route path="/checkin/:id/together" element={<Together />} />
                 </Route>
               </Route>
             </Route>

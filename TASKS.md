@@ -21,14 +21,14 @@ Detailed spec: [SPEC.md → Phase 1](SPEC.md#detailed-spec-phase-1--couple-and-p
 
 ## Phase 2 — Assessment and check-ins
 Detailed spec: [SPEC.md → Phase 2](SPEC.md#detailed-spec-phase-2--self-assessment-and-check-ins).
-- [ ] Data + repository: `Assessment`, weekday, check-in status, upsert reflections, `finishCheckin`, share visibility; tests for AC-2.1, 2.2, 2.4..2.13
-- [ ] ECR-RS partner items file and scoring (AC-2.2)
-- [ ] Assessment screens, no result shown (AC-2.3)
-- [ ] Home states for assessment and check-ins
-- [ ] Check-in write and review-and-share steps (AC-2.6..2.9)
-- [ ] Joint view with take back (AC-2.10, 2.11)
-- [ ] Settings: weekday, retake questionnaire (AC-2.12)
-- [ ] Keyboard, phone width and copy check (AC-2.14, 2.15)
+- [x] Data + repository: `Assessment`, weekday, check-in status, upsert reflections, `finishCheckin`, share visibility; tests for AC-2.1, 2.2, 2.4..2.13
+- [x] ECR-RS partner items file and scoring (AC-2.2)
+- [x] Assessment screens, no result shown (AC-2.3)
+- [x] Home states for assessment and check-ins
+- [x] Check-in write and review-and-share steps (AC-2.6..2.9)
+- [x] Joint view with take back (AC-2.10, 2.11)
+- [x] Settings: weekday, retake questionnaire (AC-2.12)
+- [x] Keyboard, phone width and copy check (AC-2.14, 2.15)
 
 ## Phase 3 — Safety
 - [ ] Safety screen (FR-18): keyword rules locally; LLM classifier needs backend

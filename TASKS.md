@@ -32,14 +32,19 @@ Detailed spec: [SPEC.md → Phase 1](SPEC.md#detailed-spec-phase-1--couple-and-p
 - [ ] Support resources screen, pause couple features (FR-19)
 - [ ] Quick exit, neutral notifications (FR-20)
 
-## Phase 4 — Insights
+## Backend (before Phases 4–5 and any real users)
+- [ ] Server function for model calls; API key only server-side (NFR-3)
+- [ ] ADR: choose backend (Supabase EU planned); move repository rules to RLS, repository tests to RLS tests
+- [ ] Real auth (magic link) replaces local profiles (FR-1)
+
+## Phase 4 — AI reflection guide and insights
+- [ ] Guide system prompt v1 and output checks (FR-27, FR-28, FR-29)
+- [ ] Evaluation set: introduced labels, partner-data isolation, safety hand-off (FR-28, FR-30, FR-31)
+- [ ] Guide chat UI, gated by `ai_insights` consent (FR-26); share a takeaway (FR-32)
+- [ ] Clinical review of prompts before pilot (FR-33)
 - [ ] Extraction pipeline per reflection (NFR-3)
 - [ ] Insight generation with guardrails: min evidence, banned labels (FR-14, FR-15, FR-16)
 - [ ] Insight UI, feedback, share (FR-17)
-
-## Backend (before Phases 4–5 and any real users)
-- [ ] ADR: choose backend (Supabase EU planned); move repository rules to RLS, repository tests to RLS tests
-- [ ] Real auth (magic link) replaces local profiles (FR-1)
 
 ## Phase 5 — Therapist and data rights
 - [ ] Therapist accounts, dual-consent grants, revoke (FR-21)

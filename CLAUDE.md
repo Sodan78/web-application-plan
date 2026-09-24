@@ -46,7 +46,8 @@ Vite + React 19 + TypeScript, Tailwind v4, shadcn/ui (`src/components/ui`, gener
 
 - **Privacy is enforced in the repository** (`src/lib/data/repository.ts`), never in components. Components only use `repo` functions, which take the viewer's id. Every rule gets tests for allowed and denied access. Components never touch `localStorage` for app data.
 - **A partner can never read the other's reflections, assessments, insights or safety flags.** Sharing creates a `Share` copy; it never exposes the original.
-- **No attachment labels in the UI or in LLM output** ("anxious", "avoidant", "secure type", etc.). Use situation → tendency wording.
+- **The app never assigns an attachment label** ("anxious", "avoidant", "fearful-avoidant", "secure type", etc.) in UI or AI output. Use situation → tendency wording. The AI guide may explore a label only after the person uses it first (ADR 0006).
+- **The AI guide never presents as or names a real person**, and always says it's an AI, not a therapist.
 - **No clinical claims** (diagnose, treat, therapy replacement). The app supports therapy; it isn't therapy.
 - **No LLM calls or API keys in frontend code.** AI waits for a backend. Never commit secrets (the repo is public).
 - **Safety flags are never visible to the partner** and never trigger notifications to them.

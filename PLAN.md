@@ -114,6 +114,13 @@ Either partner can unlink. Private data stays with its owner; handling of shared
 
 ## 6. AI and pattern detection
 
+**AI reflection guide** ([ADR 0006](docs/decisions/0006-ai-reflection-guide.md), SPEC FR-26..33): a one-to-one chat per person, built in Phase 4.
+- Server function holds the model API key and builds each request from **only the viewer's own** reflections and assessment summary.
+- Flow per message: consent check → safety screen → model (system prompt: attachment-informed open questions, no introduced labels, AI-not-therapist) → output check for introduced labels and clinical wording → reply.
+- Evaluation set of scripted conversations in the repo; runs on every prompt change.
+
+**Insights** (pattern detection over time):
+
 - Runs only in edge functions; never sends one partner's private reflections into a call about the other partner.
 - Pipeline: extract situations/emotions per reflection → aggregate over time per person → generate a candidate insight → rule checks (min evidence, no labels like "anxious/avoidant type", no diagnosis wording) → queue for display.
 - Store structured extractions, not raw prompts, where possible; keep provider zero-retention if available.
@@ -158,8 +165,8 @@ Self-assessment (ECR-R / ECR-RS), check-in flow, private reflections, sharing/wi
 **Phase 3 — Safety (week 5–6)**
 Safety screen, resources page, quick exit. Built *before* insights.
 
-**Phase 4 — Insights (weeks 6–8)**
-Extraction pipeline, gradual insight display, feedback loop, wording guardrails.
+**Phase 4 — Backend, AI reflection guide and insights (weeks 6–9)**
+Minimal backend (ADR), AI reflection guide with evaluation set, extraction pipeline, gradual insight display, feedback loop, wording guardrails.
 
 **Phase 5 — Therapist & data rights (weeks 8–9)**
 Therapist accounts and grants, export, delete, separation flow, audit log.

@@ -86,3 +86,167 @@ Acceptance: querying `reflections` as the partner returns zero rows; a withdrawn
 - ECR-R / ECR-RS used without a licence check (product owner decision). Must be resolved before commercial launch.
 - MDR classification not yet assessed.
 - No backend yet (ADR 0005): data is in the browser and must be test data only. FR-1, FR-3, FR-8 reminders, FR-14..17, FR-21..23 need a backend.
+
+---
+
+# Detailed spec: Phase 1 — Couple and privacy core
+
+Status: draft for review. Covers FR-2, FR-4 and FR-25 at screen level, for the current browser-only stage ([ADR 0005](docs/decisions/0005-local-data-layer-first.md)). Acceptance criteria are numbered `AC-1.n` and each one maps to at least one test.
+
+## Scope
+
+In:
+- Consent before first use, and changing it later (FR-2)
+- Pairing two profiles through a request the partner accepts (FR-4); a local stand-in for email invites (FR-3)
+- Ending a couple (FR-25)
+- A Settings page holding the above
+
+Out (later phases): email invites and expiry emails (needs backend), self-assessment, check-ins UI, therapist access, export and deletion, quick exit.
+
+Because there is no backend, both partners use the same browser and switch profile. Every flow below must still work as if they were on separate devices: nothing one partner does is decided for the other.
+
+## User stories
+
+- **US-1** As a partner, I want to understand and agree to how my data is used before I write anything, so I feel safe using the app.
+- **US-2** As a partner, I want to ask my partner to join me, and have them accept, so we are only linked when we both want it.
+- **US-3** As a partner, I want to change my consent later, so I stay in control.
+- **US-4** As a partner, I want to end our couple on my own, so I'm never stuck linked to someone.
+
+## Data model additions
+
+```ts
+type ConsentPurpose = 'store_reflections' | 'ai_insights' | 'therapist_access'
+
+type Consent = {
+  id: Id
+  userId: Id
+  purpose: ConsentPurpose
+  version: number          // text version the user agreed to; current = 1
+  givenAt: string
+  withdrawnAt: string | null
+}
+
+type PairRequest = {
+  id: Id
+  fromId: Id
+  toId: Id
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'expired'
+  createdAt: string
+  expiresAt: string        // createdAt + 7 days
+  resolvedAt: string | null
+}
+```
+
+Consent history is append-only: changing a consent withdraws the old row and adds a new one. Never edit or delete a given consent.
+
+## Repository API additions
+
+All take the viewer's id; all rules are enforced here (P3).
+
+| Function | Rule |
+|---|---|
+| `getConsents(viewerId)` | Returns only the viewer's current (not withdrawn) consents. |
+| `setConsent(viewerId, purpose, given)` | Records give/withdraw for the viewer only. |
+| `listPairCandidates(viewerId)` | Other profiles that are not in an active couple. Returns display name and id only. |
+| `requestPair(viewerId, toId)` | Viewer must have `store_reflections` consent, not be in an active couple, and have no other pending outgoing request. Not to self. |
+| `listPairRequests(viewerId)` | Pending requests the viewer sent or received. Expired ones are marked `expired` on read. |
+| `respondToPair(viewerId, requestId, accept)` | Only the recipient. Accepting requires the recipient's `store_reflections` consent and that neither person is now in an active couple; creates the couple and cancels all other pending requests involving either person. |
+| `cancelPairRequest(viewerId, requestId)` | Only the sender. |
+| `endCouple(viewerId)` | Either member (exists). |
+
+## Screens and behaviour
+
+### 1. Consent (`/consent`)
+Shown right after a new profile is created, and whenever the viewer has no current `store_reflections` consent. Every other signed-in route redirects here until it is given.
+
+Content, in this order:
+
+> **Before you start**
+> Your reflections are private. Your partner only sees what you choose to share, and you can take a share back at any time.
+>
+> **Store my reflections** (required to use check-ins)
+> We keep what you write so you can come back to it. Right now it is stored only in this browser.
+>
+> **Insights from my reflections** (optional, off by default)
+> Later, the app can suggest patterns it notices in your own reflections. Nothing is analysed until you turn this on. *Not available yet.*
+>
+> **Therapist access** (optional, off by default)
+> Your therapist can see what you and your partner have shared, only if you both agree. *Not available yet.*
+>
+> [ Continue ]
+
+- "Store my reflections" is a checkbox, unchecked by default. **Continue** is disabled until it is checked.
+- The two optional items are checkboxes, unchecked, and can be set now or later. They are stored but have no effect in Phase 1.
+- No pre-ticked boxes, no "accept all".
+
+### 2. Home (`/`)
+Shows one of four states:
+
+| State | What the viewer sees |
+|---|---|
+| Not paired, no requests | "You're not linked with a partner yet." + **Invite your partner** |
+| Outgoing request pending | "Waiting for {name} to accept." + **Cancel request** |
+| Incoming request(s) | For each: "{name} would like to link with you." + **Accept** / **Decline** |
+| Paired | "You're linked with {name}." Placeholder for check-ins. |
+
+Incoming requests show above everything else. If the viewer has both an outgoing and an incoming request, both are shown.
+
+### 3. Invite your partner (dialog)
+- Lists pair candidates by display name. If none: "No one else has a profile in this browser yet. Ask your partner to create one." + **Switch profile**.
+- Choosing a name and confirming sends the request: toast "Request sent to {name}."
+
+### 4. Accept / decline
+- **Accept** → confirm dialog: "Link with {name}? You'll do check-ins together. Your reflections stay private unless you share them." [Link] [Not now]. On Link: toast "You're now linked with {name}."
+- **Decline** → no confirm; request is declined silently. The sender sees the request disappear and the "not paired" state again, with no "declined" message (avoids pressure).
+
+### 5. Settings (`/settings`)
+Reachable from the header on every signed-in page.
+
+- **Profile:** display name (read-only in Phase 1).
+- **Privacy choices:** the three consents as switches, with the same short descriptions as the Consent screen.
+  - Turning off "Store my reflections" asks: "Turn this off? You won't be able to write check-ins until you turn it back on. What you've already written is kept until you delete it." [Turn off] [Keep on]. Afterwards the viewer is redirected to the Consent screen on the next navigation.
+- **Your couple** (only when paired): "Linked with {name} since {date}." + **End our couple**.
+
+### 6. End our couple (dialog)
+> **End your couple with {name}?**
+> - Your private reflections stay yours.
+> - Things you shared become visible only to you. The same goes for {name}.
+> - This can't be undone. You can link again later with a new request.
+>
+> [End couple] [Cancel]
+
+- Takes effect immediately. The other partner does not need to agree.
+- The other partner's Home, on their next visit, shows the "not paired" state with a one-time neutral notice: "Your couple link has ended." No name of who ended it, no reason.
+
+## Edge cases
+
+- Request to someone who pairs with another person before accepting → request becomes `cancelled`; sender's Home returns to "not paired".
+- Both people send each other a request → either can accept the incoming one; accepting cancels the other.
+- Request older than 7 days → `expired`; treated as gone for both.
+- Viewer withdraws `store_reflections` while a request is pending → the request is cancelled.
+- A profile never sees another profile's consents.
+
+## Acceptance criteria
+
+Consent
+- **AC-1.1** A new profile is redirected to `/consent` from every signed-in route until "Store my reflections" is given.
+- **AC-1.2** Continue is disabled until the required box is checked; optional boxes start unchecked.
+- **AC-1.3** Changing a consent keeps the old record (with `withdrawnAt`) and adds a new one.
+- **AC-1.4** `getConsents` for one profile never returns another profile's consents.
+
+Pairing
+- **AC-1.5** A profile cannot request itself, or request while in an active couple, or send a second pending request.
+- **AC-1.6** Only the recipient can accept or decline; only the sender can cancel.
+- **AC-1.7** Accepting creates a couple with exactly those two members and cancels every other pending request involving either of them.
+- **AC-1.8** Accepting fails if either person is already in an active couple.
+- **AC-1.9** A request older than 7 days cannot be accepted and shows as gone for both.
+- **AC-1.10** A declined request shows no "declined" message to the sender.
+
+Ending
+- **AC-1.11** Either member can end the couple without the other's action; the couple becomes `ended` immediately.
+- **AC-1.12** After ending, each person's shares are visible only to themselves (existing test), and both can send new pair requests.
+- **AC-1.13** The other partner sees "Your couple link has ended." once, without who or why.
+
+General
+- **AC-1.14** All flows work by keyboard only, and every control has a visible label (NFR-2).
+- **AC-1.15** No screen uses attachment labels or clinical wording (P2, P5).

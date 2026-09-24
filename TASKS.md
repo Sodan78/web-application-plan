@@ -12,11 +12,11 @@ Work breakdown for [PLAN.md](PLAN.md). Each task names the requirement(s) from [
 
 ## Phase 1 — Couple and privacy core
 Detailed spec: [SPEC.md → Phase 1](SPEC.md#detailed-spec-phase-1--couple-and-privacy-core).
-- [ ] Data model + repository: `Consent`, `PairRequest`, new functions, tests for AC-1.3..1.9, 1.11, 1.12
-- [ ] Consent screen and redirect (AC-1.1, 1.2)
-- [ ] Home states, invite dialog, accept/decline (AC-1.5..1.10)
-- [ ] Settings: privacy choices, end couple dialog, ended notice (AC-1.11..1.13)
-- [ ] Keyboard and copy check (AC-1.14, 1.15)
+- [x] Data model + repository: `Consent`, `PairRequest`, new functions, tests for AC-1.3..1.9, 1.11, 1.12
+- [x] Consent screen and redirect (AC-1.1, 1.2)
+- [x] Home states, invite dialog, accept/decline (AC-1.5..1.10)
+- [x] Settings: privacy choices, end couple dialog, ended notice (AC-1.11..1.13)
+- [x] Keyboard and copy check (AC-1.14, 1.15)
 - [ ] Invite partner by email; one-time, 7-day expiry (FR-3). Needs backend
 
 ## Phase 2 — Assessment and check-ins

@@ -204,7 +204,7 @@ Reachable from the header on every signed-in page.
 
 - **Profile:** display name (read-only in Phase 1).
 - **Privacy choices:** the three consents as switches, with the same short descriptions as the Consent screen.
-  - Turning off "Store my reflections" asks: "Turn this off? You won't be able to write check-ins until you turn it back on. What you've already written is kept until you delete it." [Turn off] [Keep on]. Afterwards the viewer is redirected to the Consent screen on the next navigation.
+  - Turning off "Store my reflections" asks: "Turn this off? You won't be able to write check-ins until you turn it back on. What you've already written is kept until you delete it." [Turn off] [Keep on]. Afterwards the viewer is taken straight to the Consent screen.
 - **Your couple** (only when paired): "Linked with {name} since {date}." + **End our couple**.
 
 ### 6. End our couple (dialog)

@@ -15,6 +15,8 @@ export const emptyDatabase = (): Database => ({
   checkins: [],
   reflections: [],
   shares: [],
+  consents: [],
+  pairRequests: [],
 })
 
 export function browserStorage(): Storage {
@@ -22,7 +24,8 @@ export function browserStorage(): Storage {
     load() {
       try {
         const raw = window.localStorage.getItem(KEY)
-        return raw ? (JSON.parse(raw) as Database) : null
+        // Spread over an empty db so data saved before new collections existed still loads.
+        return raw ? { ...emptyDatabase(), ...(JSON.parse(raw) as Partial<Database>) } : null
       } catch {
         return null
       }

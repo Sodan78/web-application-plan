@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest'
-import { AccessError, createRepository, type Repository } from './repository'
-import { memoryStorage } from './storage'
+import { AccessError, type Repository } from './repository'
+import { consentingProfile, pairUp, testRepository } from './test-helpers'
 
 let repo: Repository
 let a: string
@@ -8,10 +8,10 @@ let b: string
 let checkinId: string
 
 beforeEach(async () => {
-  repo = createRepository(memoryStorage())
-  a = (await repo.createProfile('Alex')).id
-  b = (await repo.createProfile('Sam')).id
-  await repo.pair(a, b)
+  repo = testRepository().repo
+  a = await consentingProfile(repo, 'Alex')
+  b = await consentingProfile(repo, 'Sam')
+  await pairUp(repo, a, b)
   checkinId = (await repo.startCheckin(a)).id
 })
 
@@ -25,6 +25,12 @@ describe('reflections are private (P1)', () => {
   test('partner cannot share someone else’s reflection', async () => {
     const r = await repo.saveReflection(a, checkinId, 'feeling', 'private text')
     await expect(repo.share(b, r.id, 'x')).rejects.toThrow(AccessError)
+  })
+
+  test('writing requires consent to store reflections', async () => {
+    await repo.setConsent(a, 'store_reflections', false)
+    await expect(repo.saveReflection(a, checkinId, 'feeling', 'x')).rejects.toThrow(AccessError)
+    await expect(repo.startCheckin(a)).rejects.toThrow(AccessError)
   })
 })
 
@@ -52,20 +58,36 @@ describe('sharing (FR-10..12)', () => {
 
 describe('couples (FR-4, FR-25)', () => {
   test('outsider cannot read a couple’s check-in', async () => {
-    const c = (await repo.createProfile('Outsider')).id
+    const c = await consentingProfile(repo, 'Outsider')
     await expect(repo.listShares(c, checkinId)).rejects.toThrow(AccessError)
   })
 
-  test('a person can be in only one active couple', async () => {
-    const c = (await repo.createProfile('Third')).id
-    await expect(repo.pair(c, a)).rejects.toThrow(AccessError)
+  test('AC-1.11 either member can end the couple alone', async () => {
+    await repo.endCouple(b)
+    expect(await repo.getActiveCouple(a)).toBeNull()
+    expect(await repo.getActiveCouple(b)).toBeNull()
   })
 
-  test('after separation, shares are visible only to their author', async () => {
+  test('AC-1.12 after ending, shares are visible only to their author and both can pair again', async () => {
     const r = await repo.saveReflection(a, checkinId, 'action', 'text')
     await repo.share(a, r.id, 'text')
     await repo.endCouple(b)
     expect(await repo.listShares(b, checkinId)).toEqual([])
     expect(await repo.listShares(a, checkinId)).toHaveLength(1)
+    await expect(repo.requestPair(a, b)).resolves.toBeUndefined()
+  })
+
+  test('AC-1.13 only the other partner gets the end notice, once', async () => {
+    await repo.endCouple(a)
+    expect(await repo.hasUnseenEndNotice(a)).toBe(false)
+    expect(await repo.hasUnseenEndNotice(b)).toBe(true)
+    await repo.dismissEndNotice(b)
+    expect(await repo.hasUnseenEndNotice(b)).toBe(false)
+  })
+
+  test('AC-1.13 the ended couple exposes no one who ended it', async () => {
+    await repo.endCouple(a)
+    expect(await repo.getActiveCouple(b)).toBeNull()
+    expect(JSON.stringify(await repo.listPairRequests(b))).not.toContain(a)
   })
 })

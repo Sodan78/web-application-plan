@@ -7,10 +7,12 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
+    alias: { '@': path.resolve(import.meta.dirname, './src') },
   },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Role queries in jsdom are slow, more so on a cloud-synced disk.
+    testTimeout: 15_000,
   },
 })

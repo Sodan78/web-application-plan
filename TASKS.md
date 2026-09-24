@@ -4,29 +4,28 @@ Work breakdown for [PLAN.md](PLAN.md). Each task names the requirement(s) from [
 
 ## Phase 0 — Foundation
 - [x] Scaffold Vite + React + TS, Tailwind, shadcn/ui, React Router, TanStack Query
-- [x] Magic-link sign-in page and protected routes (FR-1)
+- [x] Local profile sign-in and protected routes (FR-1, local stand-in)
 - [x] Vitest + Testing Library setup
-- [x] Supabase config in repo
+- [x] Local data layer: types, storage, repository with privacy tests (ADR 0005)
 - [x] Git repo, SPEC/PLAN/TASKS/CLAUDE.md, ADRs
-- [ ] Create hosted Supabase project in an EU region; link it (`supabase link`) and fill `.env.local`
 - [ ] CI: lint, typecheck, test, build on every push
 
 ## Phase 1 — Couple and privacy core
-- [ ] Migration: `profiles`, `couples`, `couple_members`, `invites`, `consents` with RLS (FR-2, FR-4)
-- [ ] RLS tests for every Phase 1 table, allowed and denied (NFR-4)
+- [ ] Pair two local profiles; end couple (FR-4, FR-25; repository done, UI to do)
+- [ ] Consents in the data model and repository, with tests (FR-2, NFR-4)
 - [ ] Consent screens, versioned (FR-2)
-- [ ] Invite partner by email; accept flow; one-time, 7-day expiry (FR-3)
+- [ ] Invite partner by email; one-time, 7-day expiry (FR-3). Needs backend
 
 ## Phase 2 — Assessment and check-ins
 - [ ] ECR-R / ECR-RS questionnaire, scoring stored server-side, no result screen (FR-5, FR-6, FR-7)
-- [ ] Migration: `assessments`, `checkins`, `reflections`, `shares` with RLS + tests
+- [ ] Add `Assessment` to the data model; repository tests (FR-7)
 - [ ] Check-in flow with private prompts (FR-9)
 - [ ] Review and share step, edited shared copy, withdraw (FR-10, FR-11, FR-12)
 - [ ] Joint view (FR-13)
-- [ ] Recurring schedule and reminders (FR-8)
+- [ ] Recurring schedule (FR-8); reminders need backend
 
 ## Phase 3 — Safety
-- [ ] Safety screen edge function (FR-18)
+- [ ] Safety screen (FR-18): keyword rules locally; LLM classifier needs backend
 - [ ] Support resources screen, pause couple features (FR-19)
 - [ ] Quick exit, neutral notifications (FR-20)
 
@@ -34,6 +33,10 @@ Work breakdown for [PLAN.md](PLAN.md). Each task names the requirement(s) from [
 - [ ] Extraction pipeline per reflection (NFR-3)
 - [ ] Insight generation with guardrails: min evidence, banned labels (FR-14, FR-15, FR-16)
 - [ ] Insight UI, feedback, share (FR-17)
+
+## Backend (before Phases 4–5 and any real users)
+- [ ] ADR: choose backend (Supabase EU planned); move repository rules to RLS, repository tests to RLS tests
+- [ ] Real auth (magic link) replaces local profiles (FR-1)
 
 ## Phase 5 — Therapist and data rights
 - [ ] Therapist accounts, dual-consent grants, revoke (FR-21)

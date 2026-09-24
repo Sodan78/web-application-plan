@@ -1,6 +1,6 @@
 # 0002. Develop against hosted Supabase, not local Docker
 
-Date: 2026-09-24. Status: accepted.
+Date: 2026-09-24. Status: superseded by [0005](0005-local-data-layer-first.md).
 
 ## Context
 Running Supabase locally requires Docker. The team prefers not to install Docker.

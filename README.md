@@ -2,7 +2,7 @@
 
 Couples check-in web app for attachment security. See [intent.md](intent.md) and [PLAN.md](PLAN.md).
 
-Stack: Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Query, react-hook-form + zod, Supabase.
+Stack: Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Query, react-hook-form + zod. No backend yet: data is stored in the browser ([ADR 0005](docs/decisions/0005-local-data-layer-first.md)), so use test data only.
 
 ## Docs
 
@@ -10,23 +10,16 @@ Stack: Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Q
 
 ## Run locally
 
-Requires Node 20+. No Docker: development uses a hosted Supabase dev project in an EU region (see [ADR 0002](docs/decisions/0002-hosted-supabase-no-docker.md)).
-
-1. Create a Supabase project at supabase.com, region EU (e.g. Frankfurt).
-2. In the project's Auth settings, add `http://localhost:5173` as Site URL / redirect URL.
-3. Then:
+Requires Node 20+. Nothing else: no Docker, no accounts.
 
 ```bash
 npm install
-npx supabase login
-npx supabase link --project-ref <your-project-ref>
-cp .env.example .env.local   # paste Project URL and anon key from Settings → API
 npm run dev
 ```
+
+Open http://localhost:5173 and create a profile. To try pairing, create a second profile in the same browser.
 
 ## Scripts
 
 - `npm run dev` / `build` / `preview`
 - `npm run lint`, `npm run typecheck`, `npm test`
-- `npm run db:push` applies `supabase/migrations` to the linked project
-- `npm run db:types` regenerates `src/lib/database.types.ts`

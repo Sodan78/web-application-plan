@@ -17,7 +17,7 @@ Out of scope: relationships with abuse or control; support for conflict in the m
 
 - **P1 Private first.** Nothing a partner writes is visible to anyone else unless that partner explicitly shares it.
 - **P2 Gentle disclosure.** No attachment label is ever shown. Insights are tendencies in situations, not a type.
-- **P3 Enforced by the database.** Every access rule is enforced by Row Level Security and covered by a test.
+- **P3 Enforced in one place.** Every access rule is enforced in the data layer (the repository now, database policies once there is a backend), never in screens, and covered by a test.
 - **P4 Sensitive data.** All reflections and assessment data are special-category personal data under GDPR.
 - **P5 Not a medical device.** No diagnosis, treatment or clinical claims in the UI.
 
@@ -73,7 +73,7 @@ Acceptance: querying `reflections` as the partner returns zero rows; a withdrawn
 - **NFR-1** All data is stored and processed in the EU. Processors (Supabase, email, LLM) have data processing agreements.
 - **NFR-2** WCAG 2.2 AA; works on phone width.
 - **NFR-3** LLM calls run server-side only, with one person's own data per call; no provider training on the data.
-- **NFR-4** Every RLS policy has an automated test proving both allowed and denied access.
+- **NFR-4** Every access rule has an automated test proving both allowed and denied access (repository tests now; database policy tests once there is a backend).
 - **NFR-5** A DPIA and a regulatory (EU MDR) assessment are completed before any external pilot.
 
 ## Success measures (3 months of use)
@@ -85,3 +85,4 @@ Acceptance: querying `reflections` as the partner returns zero rows; a withdrawn
 
 - ECR-R / ECR-RS used without a licence check (product owner decision). Must be resolved before commercial launch.
 - MDR classification not yet assessed.
+- No backend yet (ADR 0005): data is in the browser and must be test data only. FR-1, FR-3, FR-8 reminders, FR-14..17, FR-21..23 need a backend.

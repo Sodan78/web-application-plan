@@ -30,30 +30,25 @@ Read before changing behaviour:
 
 - `npm run dev`: dev server at http://localhost:5173
 - `npm run lint` (oxlint), `npm run typecheck`, `npm test` (Vitest), `npm run build`
-- `npx supabase db push`: apply `supabase/migrations` to the linked hosted project
-- `npx supabase gen types typescript --linked > src/lib/database.types.ts`: regenerate DB types after a migration
-
-There is no local Docker database. We work against a hosted Supabase dev project in an EU region (see ADR 0002).
+There is no backend yet (ADR 0005). Data lives in the browser via `src/lib/data`; don't add Supabase, Docker or other services without an ADR.
 
 ## Stack and layout
 
-Vite + React 19 + TypeScript, Tailwind v4, shadcn/ui (`src/components/ui`, generated; add via `npx shadcn@latest add <name>`, don't hand-edit unless needed), React Router, TanStack Query, react-hook-form + zod, Supabase.
+Vite + React 19 + TypeScript, Tailwind v4, shadcn/ui (`src/components/ui`, generated; add via `npx shadcn@latest add <name>`, don't hand-edit unless needed), React Router, TanStack Query, react-hook-form + zod. Data: `src/lib/data` over localStorage.
 
 - `src/features/<feature>/`: feature code (auth, pairing, assessment, checkin, sharing, insights, safety, therapist, settings)
 - `src/routes/`: page components
-- `src/lib/`: supabase client, query client, utils
-- `supabase/migrations/`: schema and RLS policies (SQL)
-- `supabase/functions/`: edge functions (Deno)
-- `supabase/tests/`: RLS tests
+- `src/lib/data/`: `types.ts` (model), `storage.ts` (persistence), `repository.ts` (the only data API), with tests
+- `src/lib/`: query client, utils
 - Import with the `@/` alias.
 
 ## Rules that must not be broken
 
-- **Privacy is enforced in the database.** Every new table enables RLS and gets policies plus tests for allowed and denied access. Never rely on the frontend to hide data.
-- **A partner can never read the other's `reflections`, `assessments`, `insights` or `safety_flags`.** Sharing creates a row in `shares`; it never exposes the original.
+- **Privacy is enforced in the repository** (`src/lib/data/repository.ts`), never in components. Components only use `repo` functions, which take the viewer's id. Every rule gets tests for allowed and denied access. Components never touch `localStorage` for app data.
+- **A partner can never read the other's reflections, assessments, insights or safety flags.** Sharing creates a `Share` copy; it never exposes the original.
 - **No attachment labels in the UI or in LLM output** ("anxious", "avoidant", "secure type", etc.). Use situation → tendency wording.
 - **No clinical claims** (diagnose, treat, therapy replacement). The app supports therapy; it isn't therapy.
-- **LLM calls only from edge functions**, with one user's own data per call. Never put secrets or the service-role key in frontend code.
+- **No LLM calls or API keys in frontend code.** AI waits for a backend. Never commit secrets (the repo is public).
 - **Safety flags are never visible to the partner** and never trigger notifications to them.
 - Don't log reflection text or assessment answers.
 

@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Toaster } from '@/components/ui/sonner'
-import { AuthProvider } from '@/features/auth/AuthProvider'
+import { SessionProvider } from '@/features/auth/session'
 import { RequireAuth } from '@/features/auth/RequireAuth'
 import { queryClient } from '@/lib/query-client'
 import { Home } from '@/routes/Home'
@@ -11,7 +11,7 @@ import { SignIn } from '@/routes/SignIn'
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+      <SessionProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/sign-in" element={<SignIn />} />
@@ -22,7 +22,7 @@ export default function App() {
           </Routes>
         </BrowserRouter>
         <Toaster />
-      </AuthProvider>
+      </SessionProvider>
     </QueryClientProvider>
   )
 }

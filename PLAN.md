@@ -16,20 +16,33 @@ Success after 3 months: the couple feels safer raising hard topics and both can 
 
 ## 2. Stack (Lovable default)
 
+**Current stage: no backend** ([ADR 0005](docs/decisions/0005-local-data-layer-first.md)). Data lives in the browser behind `src/lib/data`, and "sign in" means picking a local profile. The Supabase rows below are the target for when we add a backend; nothing server-side exists yet.
+
 | Layer | Choice | Notes |
 |---|---|---|
 | Build | Vite + React 19 + TypeScript | SPA, same as Lovable scaffolds |
 | UI | Tailwind CSS + shadcn/ui (Radix) + lucide-react | Calm, accessible components |
 | Routing | React Router | |
 | Server state | TanStack Query | |
-| Forms | react-hook-form + zod | zod schemas shared with edge functions |
-| Backend | Supabase (hosted): Postgres, Auth, Row Level Security, Edge Functions (Deno), Storage | **EU region** (e.g. Frankfurt) for GDPR; hosted dev project, no Docker (ADR 0002) |
-| AI | Supabase Edge Function calling an LLM (e.g. Claude `claude-sonnet-5`) | Server-side only; data-processing agreement and EU residency need confirming (see §8) |
-| Email | Supabase Auth emails + Resend for invites/reminders | |
+| Forms | react-hook-form + zod | |
+| Data (now) | `src/lib/data`: typed repository over `localStorage` | Privacy rules enforced in the repository; test data only |
+| Backend (later) | Supabase (hosted, EU): Postgres, Auth, Row Level Security, Edge Functions | Repository rules become RLS policies |
+| AI (later) | Server function calling an LLM (e.g. Claude `claude-sonnet-5`) | Server-side only; data-processing agreement and EU residency need confirming (see §8) |
+| Email (later) | Resend for invites and reminders | |
 | Hosting | Lovable hosting or Vercel/Netlify (static SPA) | |
-| Testing | Vitest + Testing Library; Playwright for key flows; SQL tests for RLS run against the hosted dev project | RLS tests are required, not optional |
+| Testing | Vitest + Testing Library; Playwright for key flows later | Every privacy rule has a repository test (allowed and denied) |
 
 ## 3. Architecture
+
+Now:
+
+```
+Browser (React SPA)
+ └─ src/lib/data/repository.ts ... only data API; enforces privacy rules
+     └─ storage.ts ............... localStorage (memory in tests)
+```
+
+Later (target):
 
 ```
 Browser (React SPA)
@@ -45,9 +58,13 @@ Supabase (EU)
       LLM API (only from edge functions, only one person's own data per call)
 ```
 
-Principle: **the database, not the frontend, guarantees privacy.** Every table has RLS; the client never sees a row it isn't allowed to.
+Principle: **privacy rules live in one place, never in components.** Now that place is the repository; later it is the database (RLS), so the client never receives data it isn't allowed to see.
 
-## 4. Data model (first cut)
+## 4. Data model
+
+**Now (core model, `src/lib/data/types.ts`):** `Profile`, `Couple` (two members, active/ended), `Checkin`, `Reflection` (author only), `Share` (separate copy, can be withdrawn). The full model below is the target; tables are added as the phases need them.
+
+Target model:
 
 | Table | Key columns | Visible to |
 |---|---|---|
@@ -130,10 +147,10 @@ Either partner can unlink. Private data stays with its owner; handling of shared
 ## 10. Phases
 
 **Phase 0 — Foundation (week 1)**
-Scaffold Vite/React/TS/Tailwind/shadcn, Supabase project (EU), auth, base layout, CI (lint, typecheck, tests).
+Scaffold Vite/React/TS/Tailwind/shadcn, local data layer, local profiles, base layout, CI (lint, typecheck, tests).
 
 **Phase 1 — Couple & privacy core (weeks 2–3)**
-Profiles, pairing via invite, consent records, full schema with RLS + RLS test suite.
+Pairing two local profiles, consent records, repository tests for every rule.
 
 **Phase 2 — Assessment & check-ins (weeks 3–5)**
 Self-assessment (ECR-R / ECR-RS), check-in flow, private reflections, sharing/withdrawing, joint view, reminders.
@@ -160,13 +177,10 @@ couplesunite/
 │  ├─ features/
 │  │  ├─ auth/  pairing/  assessment/  checkin/
 │  │  ├─ sharing/  insights/  therapist/  safety/  settings/
-│  ├─ lib/                  # supabase client, query client, utils
+│  ├─ lib/data/             # types, storage, repository (+ tests)
+│  ├─ lib/                  # query client, utils
 │  ├─ routes/               # React Router pages
 │  └─ main.tsx
-├─ supabase/
-│  ├─ migrations/           # schema + RLS policies
-│  ├─ functions/            # edge functions (invite, share, insights, safety, export)
-│  └─ tests/                # RLS tests
 ├─ tests/e2e/               # Playwright
 ├─ docs/decisions/          # ADRs
 └─ intent.md, SPEC.md, PLAN.md, TASKS.md, CLAUDE.md
@@ -174,4 +188,4 @@ couplesunite/
 
 ## 12. Next step
 
-Phase 0 done (app shell, magic-link auth, routing, Tailwind/shadcn, Vitest, Supabase config). Next: Phase 1 schema + RLS.
+Phase 0 done (app shell, local data layer and profiles, routing, Tailwind/shadcn, Vitest). Next: Phase 1 pairing and consent. Adding a backend is a later, separate step (needed before emails, reminders, AI, therapist access or real users).

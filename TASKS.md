@@ -20,12 +20,15 @@ Detailed spec: [SPEC.md → Phase 1](SPEC.md#detailed-spec-phase-1--couple-and-p
 - [ ] Invite partner by email; one-time, 7-day expiry (FR-3). Needs backend
 
 ## Phase 2 — Assessment and check-ins
-- [ ] ECR-R / ECR-RS questionnaire, scoring stored server-side, no result screen (FR-5, FR-6, FR-7)
-- [ ] Add `Assessment` to the data model; repository tests (FR-7)
-- [ ] Check-in flow with private prompts (FR-9)
-- [ ] Review and share step, edited shared copy, withdraw (FR-10, FR-11, FR-12)
-- [ ] Joint view (FR-13)
-- [ ] Recurring schedule (FR-8); reminders need backend
+Detailed spec: [SPEC.md → Phase 2](SPEC.md#detailed-spec-phase-2--self-assessment-and-check-ins).
+- [ ] Data + repository: `Assessment`, weekday, check-in status, upsert reflections, `finishCheckin`, share visibility; tests for AC-2.1, 2.2, 2.4..2.13
+- [ ] ECR-RS partner items file and scoring (AC-2.2)
+- [ ] Assessment screens, no result shown (AC-2.3)
+- [ ] Home states for assessment and check-ins
+- [ ] Check-in write and review-and-share steps (AC-2.6..2.9)
+- [ ] Joint view with take back (AC-2.10, 2.11)
+- [ ] Settings: weekday, retake questionnaire (AC-2.12)
+- [ ] Keyboard, phone width and copy check (AC-2.14, 2.15)
 
 ## Phase 3 — Safety
 - [ ] Safety screen (FR-18): keyword rules locally; LLM classifier needs backend

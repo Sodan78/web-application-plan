@@ -264,3 +264,164 @@ Ending
 General
 - **AC-1.14** All flows work by keyboard only, and every control has a visible label (NFR-2).
 - **AC-1.15** No screen uses attachment labels or clinical wording (P2, P5).
+
+---
+
+# Detailed spec: Phase 2 — Self-assessment and check-ins
+
+Status: draft for review. Covers FR-5..FR-13 at screen level for the browser-only stage. Acceptance criteria are `AC-2.n`.
+
+## Scope
+
+In:
+- Self-assessment before the first check-in (FR-5..7)
+- Weekly check-in rhythm set by the couple, with an in-app "due" notice (FR-8)
+- Check-in flow: private prompts → review and share → done (FR-9..11)
+- Joint view per check-in, with withdraw (FR-12, FR-13)
+- Check-in history
+
+Out: email/push reminders (need backend), safety screen (Phase 3), insights and AI guide (Phase 4).
+
+## Instrument choice
+
+**ECR-RS, romantic partner domain** (Fraley et al., 2011): 9 items, 7-point agreement scale, two scores, *avoidance* and *anxiety*.
+Why this rather than the 36-item ECR-R: it is about this relationship specifically, takes about two minutes, and feels less like a test. ECR-R can be added later as an optional deeper version.
+
+Scoring (stored, never shown):
+- Avoidance = mean of items 1–6, with items 1–4 reverse-scored (8 − answer).
+- Anxiety = mean of items 7–9.
+
+Item wording lives in one file, `src/features/assessment/ecr-rs.ts`, with the instrument name and version.
+
+## User stories
+
+- **US-5** As a partner, I want a short, calm questionnaire that doesn't label me, so I can start without feeling judged.
+- **US-6** As a partner, I want to write privately first and decide afterwards what to share, so I can be honest.
+- **US-7** As a partner, I want to see what my partner shared only once I've finished my own, so neither of us is swayed by the other.
+- **US-8** As a partner, I want to take back something I shared, so sharing never feels permanent.
+
+## Data model changes
+
+```ts
+type Assessment = {
+  id: Id
+  userId: Id
+  instrument: 'ECR-RS-partner'
+  version: 1
+  answers: number[]            // 9 values, 1..7
+  scores: { avoidance: number; anxiety: number }
+  completedAt: string
+}
+
+type Couple = {
+  // …existing
+  checkinWeekday: 0 | 1 | 2 | 3 | 4 | 5 | 6   // 0 = Sunday; default 0
+}
+
+type Checkin = {
+  id: Id
+  coupleId: Id
+  createdAt: string
+  completedBy: Id[]            // members who have finished
+  closedAt: string | null      // set when both finished
+}
+```
+
+`Reflection` stays as is, but there is at most one per (check-in, author, prompt): saving again replaces the text.
+
+## Repository API changes
+
+| Function | Rule |
+|---|---|
+| `hasCompletedAssessment(viewerId)` | Returns a boolean only. **No function ever returns answers or scores to the UI** (FR-6, FR-7). |
+| `saveAssessment(viewerId, answers)` | Needs store consent. Exactly 9 answers, each an integer 1–7. Computes and stores scores. Retaking replaces it. |
+| `setCheckinWeekday(viewerId, weekday)` | Either member of the active couple. |
+| `getCheckinStatus(viewerId)` | `{ due: boolean, nextDate, open: CheckinView \| null }`. Due when no check-in has been started since the most recent scheduled weekday. |
+| `startCheckin(viewerId)` | Needs store consent, an active couple and a completed assessment. If an open check-in exists, returns it instead of creating another. |
+| `saveReflection(viewerId, checkinId, prompt, body)` | Upsert. Refused once the viewer has finished this check-in. Empty body deletes the draft. |
+| `finishCheckin(viewerId, checkinId, shares)` | `shares` = list of `{ prompt, body }` to share. Needs at least one saved reflection. Creates the shares, marks the viewer finished, closes the check-in when both have finished. One step: all or nothing. |
+| `listShares(viewerId, checkinId)` | Own shares always. Partner's shares only when the viewer has finished this check-in, the partner's share isn't withdrawn, and the couple is active. |
+| `listCheckins(viewerId)` | Newest first, with per-check-in status for the viewer: `not_started`, `in_progress`, `finished`, and whether the partner has finished (yes/no only). |
+
+## Screens and behaviour
+
+### 1. Home, once paired
+Top to bottom:
+1. **Assessment not done:** card "Before your first check-in" — "A short questionnaire about how you tend to feel in your relationship. About two minutes. There are no right answers, and you won't get a score or a label." **Start**.
+2. **Check-in open for me:** "Your check-in is in progress." **Continue**. If the partner has finished: add "{name} has finished theirs."
+3. **Check-in due, none open:** "It's time for your weekly check-in." **Start check-in**.
+4. **Not due:** "Next check-in: {weekday, date}." + **Start one now** (secondary).
+5. **Recent check-ins:** up to 5, each with date and status, linking to the joint view.
+
+### 2. Self-assessment (`/assessment`)
+- One statement per screen, with a progress indicator ("3 of 9").
+- Answer scale: 7 radio buttons from "Strongly disagree" to "Strongly agree", labelled at both ends and the middle ("Neutral"). Keyboard: arrow keys move, Enter continues.
+- **Back** keeps answers. Nothing is saved until the last answer.
+- Finish screen: "Thank you. This helps the app ask better questions over time. You won't see a score or a type. Your picture builds gradually through your check-ins." **Go to home**.
+
+### 3. Check-in: write (`/checkin/:id`)
+Intro: "This is private. Nothing is shared unless you choose to at the end."
+
+Four prompts, each a text area on one page:
+
+| Prompt | Label | Helper text |
+|---|---|---|
+| situation | A moment this week | Something that happened between you, big or small. |
+| feeling | What I felt | In your body or your mind. |
+| need | What I needed | What would have helped you in that moment. |
+| action | What I did | How you responded, or what you held back. |
+
+- Each answer saves when the field loses focus ("Saved" shown quietly).
+- Answers are optional, but at least one is needed to continue.
+- **Review and share** goes to step 4.
+
+### 4. Check-in: review and share
+Heading: "Choose what to share. Nothing is shared unless you choose."
+
+For each answered prompt:
+- The private text (read-only).
+- A "Share this" switch, **off** by default.
+- When on, an editable text box prefilled with the private text, labelled "What {partner} will see". Editing changes only the shared copy.
+
+Buttons: **Back** (to edit) and **Finish check-in**. Finish with nothing shared asks: "Finish without sharing anything? That's okay." [Finish] [Back].
+
+### 5. Joint view (`/checkin/:id/together`)
+- **Before I've finished:** redirect to my write step.
+- **I've finished, partner hasn't:** my shares, plus "{name} hasn't finished yet. Their shares will appear here when they do."
+- **Both finished:** two columns (stacked on phones), "You shared" and "{name} shared", grouped by prompt. If a partner shared nothing: "{name} didn't share anything this time." with no other emphasis.
+- Conversation prompt under the shares, one per check-in, rotating from a fixed list, e.g. "What's one thing you'd like the other to understand better?"
+- Each of my shares has **Take back** → confirm "Take this back? {name} won't see it any more." After that it shows as "You took this back." to me only.
+
+### 6. Settings addition
+Under "Your couple": "Weekly check-in day" select (Monday–Sunday). Change shows "Saved" and applies to both partners.
+
+## Edge cases
+
+- Couple ends during an open check-in → the check-in stays readable to each person for their own reflections and shares only; it can't be finished.
+- Both partners start at the same time → both get the same open check-in.
+- A new check-in can't start while one is open. An open check-in older than 14 days is closed automatically; unfinished drafts stay private and are never shared.
+- Retaking the assessment is possible from Settings ("Retake questionnaire"); no result is shown either way.
+- Withdrawing store consent mid-check-in → drafts stay, writing is blocked (Phase 1 rule).
+
+## Acceptance criteria
+
+Assessment
+- **AC-2.1** No repository function returns assessment answers or scores; the UI can only learn whether it's completed.
+- **AC-2.2** Saving requires exactly 9 integer answers from 1 to 7; scores match the scoring rule, including reverse-scored items.
+- **AC-2.3** No screen shows a score, a style name or a type after the assessment (P2).
+- **AC-2.4** A check-in can't be started before the viewer has completed the assessment.
+
+Check-ins
+- **AC-2.5** Only one open check-in per couple; starting again returns the open one.
+- **AC-2.6** Reflections are one per prompt per person; saving again replaces the text; empty text removes it.
+- **AC-2.7** After a person finishes, they can't change their reflections for that check-in.
+- **AC-2.8** Finishing needs at least one reflection, and all shares plus the finished mark are saved together or not at all.
+- **AC-2.9** "Share this" is off by default; only switched-on items create shares, with the edited text.
+- **AC-2.10** A partner's shares are hidden until the viewer has finished that check-in.
+- **AC-2.11** A taken-back share disappears for the partner and shows "You took this back." to the author.
+- **AC-2.12** Due status follows the couple's weekday: due once that day arrives if no check-in has started since.
+- **AC-2.13** Open check-ins older than 14 days close automatically without sharing drafts.
+
+General
+- **AC-2.14** Every flow works by keyboard, text areas have visible labels, and layouts work at phone width (NFR-2).
+- **AC-2.15** No copy uses labels, clinical words or pressure ("you should", "failed", "missed").

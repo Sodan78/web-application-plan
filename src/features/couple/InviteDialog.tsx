@@ -1,4 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -9,17 +12,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { useSession } from '@/features/auth/session'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { FieldError } from '@/features/auth/FieldError'
+import { email } from '@/features/auth/schemas'
 import { repo } from '@/lib/data'
-import { usePairCandidates, useViewerMutation } from './hooks'
+import { useViewerMutation } from './hooks'
+
+const schema = z.object({ email })
+type FormValues = z.infer<typeof schema>
 
 export function InviteDialog() {
   const [open, setOpen] = useState(false)
-  const [selected, setSelected] = useState<string | null>(null)
-  const { signOut } = useSession()
-  const candidates = usePairCandidates(open)
-  const send = useViewerMutation((viewerId, toId: string) => repo.requestPair(viewerId, toId), {
-    success: (toId) => `Request sent to ${candidates.data?.find((c) => c.id === toId)?.displayName}.`,
+  const { register, handleSubmit, formState, reset } = useForm<FormValues>({ resolver: zodResolver(schema) })
+  const send = useViewerMutation((viewerId, to: string) => repo.requestPair(viewerId, to), {
+    success: (to) => `Request sent. ${to} will see it after signing in.`,
   })
 
   return (
@@ -27,55 +34,40 @@ export function InviteDialog() {
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (!next) setSelected(null)
+        if (!next) reset()
       }}
     >
-      <DialogTrigger render={<Button />}>Invite your partner</DialogTrigger>
+      <DialogTrigger render={<Button size="lg" />}>Invite your partner</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Invite your partner</DialogTitle>
-          <DialogDescription>They'll need to accept before you're linked.</DialogDescription>
+          <DialogDescription>
+            They'll see your request when they sign in with this email, even if they create their account later.
+          </DialogDescription>
         </DialogHeader>
-
-        {candidates.data?.length === 0 ? (
-          <div className="grid gap-3">
-            <p className="text-sm">No one else has a profile in this browser yet. Ask your partner to create one.</p>
-            <Button variant="outline" onClick={signOut}>
-              Switch profile
-            </Button>
+        <form
+          className="grid gap-4"
+          noValidate
+          onSubmit={handleSubmit((v) => send.mutate(v.email, { onSuccess: () => setOpen(false) }))}
+        >
+          <div className="grid gap-2">
+            <Label htmlFor="partner-email">Your partner's email</Label>
+            <Input
+              id="partner-email"
+              type="email"
+              autoComplete="off"
+              aria-invalid={Boolean(formState.errors.email)}
+              aria-describedby="partner-email-error"
+              {...register('email')}
+            />
+            <FieldError id="partner-email-error" message={formState.errors.email?.message} />
           </div>
-        ) : (
-          <fieldset className="grid gap-2">
-            <legend className="sr-only">Choose your partner</legend>
-            {candidates.data?.map((c) => (
-              <label
-                key={c.id}
-                className="flex cursor-pointer items-center gap-3 rounded-md border p-3 has-checked:border-primary"
-              >
-                <input
-                  type="radio"
-                  name="partner"
-                  value={c.id}
-                  checked={selected === c.id}
-                  onChange={() => setSelected(c.id)}
-                  className="accent-primary"
-                />
-                {c.displayName}
-              </label>
-            ))}
-          </fieldset>
-        )}
-
-        {candidates.data && candidates.data.length > 0 && (
           <DialogFooter>
-            <Button
-              disabled={!selected || send.isPending}
-              onClick={() => selected && send.mutate(selected, { onSuccess: () => setOpen(false) })}
-            >
+            <Button type="submit" disabled={send.isPending}>
               Send request
             </Button>
           </DialogFooter>
-        )}
+        </form>
       </DialogContent>
     </Dialog>
   )

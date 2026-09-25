@@ -1,6 +1,6 @@
 # 0005. Start with a browser-only data layer
 
-Date: 2026-09-24. Status: accepted. Supersedes [0002](0002-hosted-supabase-no-docker.md).
+Date: 2026-09-24. Status: superseded by [0007](0007-supabase-backend.md). Supersedes [0002](0002-hosted-supabase-no-docker.md).
 
 ## Context
 We want to build and try the core flows (profiles, pairing, check-ins, private reflections, sharing) without setting up a backend, Docker or accounts.

@@ -1,65 +1,93 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { z } from 'zod'
+import { AuthLayout } from '@/components/AuthLayout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FieldError } from '@/features/auth/FieldError'
+import { PasswordInput } from '@/features/auth/PasswordInput'
+import { email } from '@/features/auth/schemas'
 import { useSession } from '@/features/auth/session'
-import { repo } from '@/lib/data'
+import { supabase } from '@/lib/supabase'
 
-const schema = z.object({ displayName: z.string().trim().min(1, 'Enter a name').max(40) })
+const schema = z.object({ email, password: z.string().min(1, 'Enter your password') })
 type FormValues = z.infer<typeof schema>
 
 export function SignIn() {
-  const { profile, signIn } = useSession()
-  const queryClient = useQueryClient()
-  const profiles = useQuery({ queryKey: ['profiles'], queryFn: () => repo.listProfiles() })
+  const { session } = useSession()
+  const [error, setError] = useState<string | null>(null)
   const { register, handleSubmit, formState } = useForm<FormValues>({ resolver: zodResolver(schema) })
+  const { errors } = formState
 
-  const create = useMutation({
-    mutationFn: ({ displayName }: FormValues) => repo.createProfile(displayName),
-    onSuccess: async (created) => {
-      await queryClient.invalidateQueries({ queryKey: ['profiles'] })
-      signIn(created.id)
-    },
-  })
+  if (session) return <Navigate to="/" replace />
 
-  if (profile) return <Navigate to="/" replace />
+  const onSubmit = async (values: FormValues) => {
+    setError(null)
+    const { error } = await supabase.auth.signInWithPassword(values)
+    if (!error) return
+    // Never say which of email or password was wrong (AC-3.2).
+    setError(
+      error.code === 'email_not_confirmed'
+        ? 'Please confirm your email first. Check your inbox.'
+        : error.code === 'invalid_credentials'
+          ? "That email and password don't match."
+          : error.message,
+    )
+  }
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Who's using the app?</CardTitle>
-          <CardDescription>Everything is stored only in this browser for now.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-6">
-          {profiles.data && profiles.data.length > 0 && (
-            <div className="grid gap-2">
-              {profiles.data.map((p) => (
-                <Button key={p.id} variant="outline" onClick={() => signIn(p.id)}>
-                  {p.displayName}
-                </Button>
-              ))}
-            </div>
-          )}
-          <form onSubmit={handleSubmit((v) => create.mutate(v))} className="grid gap-4" noValidate>
-            <div className="grid gap-2">
-              <Label htmlFor="displayName">New profile</Label>
-              <Input id="displayName" autoComplete="given-name" {...register('displayName')} />
-              {formState.errors.displayName && (
-                <p className="text-sm text-destructive">{formState.errors.displayName.message}</p>
-              )}
-            </div>
-            <Button type="submit" disabled={create.isPending}>
-              Create profile
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+    <AuthLayout
+      title="Welcome back"
+      footer={
+        <>
+          New here?{' '}
+          <Link to="/sign-up" className="font-medium text-foreground underline">
+            Create an account
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
+        <div className="grid gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            aria-invalid={Boolean(errors.email)}
+            aria-describedby="email-error"
+            {...register('email')}
+          />
+          <FieldError id="email-error" message={errors.email?.message} />
+        </div>
+        <div className="grid gap-2">
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link to="/forgot-password" className="text-sm text-muted-foreground underline">
+              Forgot password?
+            </Link>
+          </div>
+          <PasswordInput
+            id="password"
+            autoComplete="current-password"
+            aria-invalid={Boolean(errors.password)}
+            aria-describedby="password-error"
+            {...register('password')}
+          />
+          <FieldError id="password-error" message={errors.password?.message} />
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <Button type="submit" size="lg" disabled={formState.isSubmitting}>
+          Sign in
+        </Button>
+      </form>
+    </AuthLayout>
   )
 }

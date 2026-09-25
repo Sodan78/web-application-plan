@@ -5,9 +5,9 @@ import { repo } from '@/lib/data'
 
 /** The signed-in profile's id. Only use under RequireAuth. */
 export function useViewerId(): string {
-  const { profile } = useSession()
-  if (!profile) throw new Error('useViewerId used without a signed-in profile')
-  return profile.id
+  const { session } = useSession()
+  if (!session) throw new Error('useViewerId used without a signed-in user')
+  return session.user.id
 }
 
 export function useConsents() {
@@ -28,15 +28,6 @@ export function useCouple() {
 export function usePairRequests() {
   const viewerId = useViewerId()
   return useQuery({ queryKey: ['pairRequests', viewerId], queryFn: () => repo.listPairRequests(viewerId) })
-}
-
-export function usePairCandidates(enabled: boolean) {
-  const viewerId = useViewerId()
-  return useQuery({
-    queryKey: ['pairCandidates', viewerId],
-    queryFn: () => repo.listPairCandidates(viewerId),
-    enabled,
-  })
 }
 
 export function useEndNotice() {

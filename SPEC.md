@@ -17,16 +17,16 @@ Out of scope: relationships with abuse or control; support for conflict in the m
 
 - **P1 Private first.** Nothing a partner writes is visible to anyone else unless that partner explicitly shares it.
 - **P2 Gentle disclosure.** The app never assigns an attachment label. Patterns are tendencies in situations, not a type. A person may name a style themselves; the app can then explore it with them as a tendency ([ADR 0006](docs/decisions/0006-ai-reflection-guide.md)).
-- **P3 Enforced in one place.** Every access rule is enforced in the data layer (the repository now, database policies once there is a backend), never in screens, and covered by a test.
+- **P3 Enforced by the database.** Every access rule is enforced in Postgres (row level security plus database functions), never in screens, and covered by a test ([ADR 0007](docs/decisions/0007-supabase-backend.md)).
 - **P4 Sensitive data.** All reflections and assessment data are special-category personal data under GDPR.
 - **P5 Not a medical device.** No diagnosis, treatment or clinical claims in the UI.
 
 ## Functional requirements
 
 ### Accounts and pairing
-- **FR-1** A person can sign up and sign in with an emailed magic link.
+- **FR-1** A person creates an account with name, email and password, confirms the email, and signs in with email and password. A forgotten password can be reset through a link sent by email.
 - **FR-2** Before any reflection is stored, the user gives explicit consent per purpose (storing reflections, AI-generated insights, therapist access). Consent is versioned and can be withdrawn.
-- **FR-3** A partner can invite the other partner by email. The invite link expires after 7 days and works once.
+- **FR-3** A partner invites the other by entering their email address. The invited person sees the request when signed in with that email, even if they create the account later. A request expires after 7 days and works once. The app never reveals whether an email has an account.
 - **FR-4** A couple has exactly two partners. A user belongs to at most one active couple.
 
 Acceptance: a second person accepting a used or expired invite is rejected; a third user can never join a couple.
@@ -87,7 +87,8 @@ Acceptance: an automated evaluation set of scripted conversations, run on every 
 - **NFR-1** All data is stored and processed in the EU. Processors (Supabase, email, LLM) have data processing agreements.
 - **NFR-2** WCAG 2.2 AA; works on phone width.
 - **NFR-3** LLM calls run server-side only, with one person's own data per call; no provider training on the data.
-- **NFR-4** Every access rule has an automated test proving both allowed and denied access (repository tests now; database policy tests once there is a backend).
+- **NFR-4** Every access rule has an automated test proving both allowed and denied access, run against the real database schema (in-process Postgres in tests).
+- **NFR-6** The look is warm and calm: soft warm neutrals, a terracotta accent, a serif display font for headings, rounded cards and gentle gradients. It stays readable (WCAG 2.2 AA contrast) and never playful about hard topics.
 - **NFR-5** A DPIA and a regulatory (EU MDR) assessment are completed before any external pilot.
 
 ## Success measures (3 months of use)
@@ -99,13 +100,14 @@ Acceptance: an automated evaluation set of scripted conversations, run on every 
 
 - ECR-R / ECR-RS used without a licence check (product owner decision). Must be resolved before commercial launch.
 - MDR classification not yet assessed. The AI reflection guide raises this risk and must be covered by the assessment.
-- No backend yet (ADR 0005): data is in the browser and must be test data only. FR-1, FR-3, FR-8 reminders, FR-14..17, FR-21..23 and the AI guide (FR-26..33) need a backend.
+- Supabase's built-in email sender only delivers to the project's team members and is rate-limited. Real users need a custom SMTP provider (e.g. Resend, EU) before a pilot.
+- The AI guide (FR-26..33), reminders (FR-8) and insights still need server functions.
 
 ---
 
 # Detailed spec: Phase 1 — Couple and privacy core
 
-Status: draft for review. Covers FR-2, FR-4 and FR-25 at screen level, for the current browser-only stage ([ADR 0005](docs/decisions/0005-local-data-layer-first.md)). Acceptance criteria are numbered `AC-1.n` and each one maps to at least one test.
+Status: built. Covers FR-2, FR-4 and FR-25. Written for the browser-only stage; accounts and email invites replace local profiles as described in [Accounts and look](#detailed-spec-accounts-backend-and-look). Acceptance criteria are numbered `AC-1.n` and each one maps to at least one test.
 
 ## Scope
 
@@ -269,7 +271,7 @@ General
 
 # Detailed spec: Phase 2 — Self-assessment and check-ins
 
-Status: draft for review. Covers FR-5..FR-13 at screen level for the browser-only stage. Acceptance criteria are `AC-2.n`.
+Status: built. Covers FR-5..FR-13. Acceptance criteria are `AC-2.n`.
 
 ## Scope
 
@@ -426,3 +428,49 @@ Check-ins
 General
 - **AC-2.14** Every flow works by keyboard, text areas have visible labels, and layouts work at phone width (NFR-2).
 - **AC-2.15** No copy uses labels, clinical words or pressure ("you should", "failed", "missed").
+
+---
+
+# Detailed spec: Accounts, backend and look
+
+Status: draft. Moves accounts and all data to Supabase ([ADR 0007](docs/decisions/0007-supabase-backend.md)), replaces local profiles with password accounts, pairs partners by email, and refreshes the look. Acceptance criteria are `AC-3.n`. All earlier AC-1 and AC-2 rules keep applying, now enforced by the database.
+
+## Screens
+
+### Welcome (`/`, signed out)
+A warm landing section: app name, one line ("Private check-ins for couples in therapy."), a short three-step explainer (reflect privately → choose what to share → talk together), and **Create account** / **Sign in**.
+
+### Create account (`/sign-up`)
+Fields: Your name, Email, Password (at least 8 characters, show/hide toggle). **Create account**.
+After submit: "Check your email. We've sent a link to confirm {email}." Signing in before confirming shows: "Please confirm your email first. Check your inbox."
+
+### Sign in (`/sign-in`)
+Email, Password, **Sign in**, link **Forgot password?**, link **Create account**.
+Wrong email or password: "That email and password don't match." (never says which one is wrong).
+
+### Forgot password (`/forgot-password`)
+Email, **Send reset link**. Always shows "If there's an account for {email}, we've sent a link to reset the password." whether or not the account exists.
+
+### Reset password (`/reset-password`)
+Reached from the email link. New password (at least 8 characters), **Save new password** → signed in, toast "Your password has been changed.", go home. If the link is expired or used: "This link has expired. Request a new one." with a link to Forgot password.
+
+### Header
+Logo mark and name, the person's name, **Settings**, **Sign out** (replaces Switch profile).
+
+### Invite your partner (changes Phase 1 §3)
+One field: "Your partner's email" + **Send request**. Toast: "Request sent. {email} will see it after signing in." Outgoing card: "Waiting for {email} to accept." You can't invite your own email.
+Incoming requests show the sender's name, as before.
+
+## Data rules (database)
+- Every table has row level security turned on and no direct client access; the app calls one database function per repository action, and each function checks the signed-in user.
+- Assessment answers and scores can't be read by any client, including their owner (AC-2.1).
+- Due dates use the person's time zone, sent by the app.
+
+## Acceptance criteria
+- **AC-3.1** Sign-up needs a name, a valid email and a password of 8+ characters; the account can't sign in until the email is confirmed.
+- **AC-3.2** Sign-in errors never reveal whether the email exists; nor does forgot password.
+- **AC-3.3** A reset link lets the person set a new password once; an expired link shows the expired message.
+- **AC-3.4** A pair request is addressed to an email; only a signed-in user with that email sees it and can accept; the sender can't see whether the email has an account.
+- **AC-3.5** A signed-out visitor can't call any data function; a signed-in user can't read another couple's rows (tested per function).
+- **AC-3.6** All AC-1 and AC-2 tests pass against the database schema.
+- **AC-3.7** The new look meets NFR-6 and AC-1.14 / AC-2.14 (keyboard, labels, phone width, contrast).

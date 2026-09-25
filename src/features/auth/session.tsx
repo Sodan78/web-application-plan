@@ -1,50 +1,56 @@
-import { useQuery } from '@tanstack/react-query'
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { repo, type Profile } from '@/lib/data'
-
-const KEY = 'couplesunite:session'
+import { supabase } from '@/lib/supabase'
 
 type SessionState = {
+  session: Session | null
   profile: Profile | null
   loading: boolean
-  signIn: (profileId: string) => void
-  signOut: () => void
+  /** True after arriving from a password reset link, until the new password is saved. */
+  recovering: boolean
+  clearRecovering: () => void
+  signOut: () => Promise<void>
 }
 
 const SessionContext = createContext<SessionState | null>(null)
 
-function readStoredId(): string | null {
-  try {
-    return window.localStorage.getItem(KEY)
-  } catch {
-    return null
-  }
-}
-
-function writeStoredId(id: string | null) {
-  try {
-    if (id) window.localStorage.setItem(KEY, id)
-    else window.localStorage.removeItem(KEY)
-  } catch {
-    // Session just won't survive a reload.
-  }
-}
-
-/** Local stand-in for real auth until there is a backend (ADR 0005). */
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [profileId, setProfileId] = useState<string | null>(readStoredId)
-  const profiles = useQuery({ queryKey: ['profiles'], queryFn: () => repo.listProfiles() })
+  const queryClient = useQueryClient()
+  const [session, setSession] = useState<Session | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [recovering, setRecovering] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setAuthLoading(false)
+    })
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
+      setSession(next)
+      setAuthLoading(false)
+    })
+    return () => data.subscription.unsubscribe()
+  }, [])
+
+  const userId = session?.user.id
+  const profile = useQuery({
+    queryKey: ['profile', userId],
+    queryFn: () => repo.getMyProfile(userId ?? ''),
+    enabled: Boolean(userId),
+  })
 
   const value: SessionState = {
-    profile: profiles.data?.find((p) => p.id === profileId) ?? null,
-    loading: profiles.isPending,
-    signIn: (id) => {
-      writeStoredId(id)
-      setProfileId(id)
-    },
-    signOut: () => {
-      writeStoredId(null)
-      setProfileId(null)
+    session,
+    profile: profile.data ?? null,
+    loading: authLoading || (Boolean(userId) && profile.isPending),
+    recovering,
+    clearRecovering: () => setRecovering(false),
+    signOut: async () => {
+      await supabase.auth.signOut()
+      queryClient.clear()
     },
   }
 

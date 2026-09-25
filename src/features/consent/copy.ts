@@ -15,7 +15,7 @@ export const CONSENT_ITEMS: ConsentCopy[] = [
     title: 'Store my reflections',
     note: 'Required to use check-ins',
     description:
-      'We keep what you write so you can come back to it. Right now it is stored only in this browser.',
+      'We keep what you write so you can come back to it. It is stored securely in the EU and only you can read it.',
     available: true,
   },
   {

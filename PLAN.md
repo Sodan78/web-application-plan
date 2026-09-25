@@ -16,7 +16,7 @@ Success after 3 months: the couple feels safer raising hard topics and both can 
 
 ## 2. Stack (Lovable default)
 
-**Current stage: no backend** ([ADR 0005](docs/decisions/0005-local-data-layer-first.md)). Data lives in the browser behind `src/lib/data`, and "sign in" means picking a local profile. The Supabase rows below are the target for when we add a backend; nothing server-side exists yet.
+**Current stage:** accounts and all data in hosted Supabase (EU), no Docker ([ADR 0007](docs/decisions/0007-supabase-backend.md)). Tables have RLS with no client access; the app calls one database function per action. Tests run the migrations in PGlite.
 
 | Layer | Choice | Notes |
 |---|---|---|
@@ -25,8 +25,8 @@ Success after 3 months: the couple feels safer raising hard topics and both can 
 | Routing | React Router | |
 | Server state | TanStack Query | |
 | Forms | react-hook-form + zod | |
-| Data (now) | `src/lib/data`: typed repository over `localStorage` | Privacy rules enforced in the repository; test data only |
-| Backend (later) | Supabase (hosted, EU): Postgres, Auth, Row Level Security, Edge Functions | Repository rules become RLS policies |
+| Backend | Supabase (hosted, EU): Auth (email + password), Postgres with RLS, database functions; Edge Functions later | ADR 0007 |
+| Data API | `src/lib/data/repository.ts` calls one database function per action | Tests run migrations in PGlite |
 | AI (later) | Server function calling an LLM (e.g. Claude `claude-sonnet-5`) | Server-side only; data-processing agreement and EU residency need confirming (see §8) |
 | Email (later) | Resend for invites and reminders | |
 | Hosting | Lovable hosting or Vercel/Netlify (static SPA) | |
@@ -38,8 +38,10 @@ Now:
 
 ```
 Browser (React SPA)
- └─ src/lib/data/repository.ts ... only data API; enforces privacy rules
-     └─ storage.ts ............... localStorage (memory in tests)
+ └─ repository.ts ── supabase.rpc() ──▶ Supabase (EU)
+                                        ├─ Auth: email + password, reset emails
+                                        └─ Postgres: RLS on, no client table access;
+                                           security definer functions enforce every rule
 ```
 
 Later (target):
@@ -49,7 +51,7 @@ Browser (React SPA)
    │  supabase-js (JWT)
    ▼
 Supabase (EU)
- ├─ Auth ............ email magic link / password, optional MFA
+ ├─ Auth ............ email + password, optional MFA
  ├─ Postgres + RLS .. all access rules enforced in the database
  ├─ Edge Functions .. pairing, sharing, insight generation, safety screen, export/delete
  └─ Cron ............ check-in reminders, insight batch jobs
@@ -58,7 +60,7 @@ Supabase (EU)
       LLM API (only from edge functions, only one person's own data per call)
 ```
 
-Principle: **privacy rules live in one place, never in components.** Now that place is the repository; later it is the database (RLS), so the client never receives data it isn't allowed to see.
+Principle: **privacy rules live in the database, never in components**, so the client never receives data it isn't allowed to see.
 
 ## 4. Data model
 

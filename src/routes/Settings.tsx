@@ -36,13 +36,16 @@ export function Settings() {
 
   return (
     <>
-      <h1 className="text-lg font-semibold">Settings</h1>
+      <h1 className="text-3xl">Settings</h1>
 
       <Card>
         <CardHeader>
           <CardTitle>Profile</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm">Name: {profile?.displayName}</CardContent>
+        <CardContent className="grid gap-1 text-sm">
+          <p>Name: {profile?.displayName}</p>
+          <p className="text-muted-foreground">Email: {profile?.email}</p>
+        </CardContent>
       </Card>
 
       <Card>

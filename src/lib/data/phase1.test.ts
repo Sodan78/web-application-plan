@@ -1,120 +1,131 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, test } from 'vitest'
-import { AccessError, type Repository } from './repository'
-import { consentingProfile, pairUp, testRepository } from './test-helpers'
+import { AccessError } from './repository'
+import { consentingProfile, pairUp, testRepository, type TestContext } from './test-helpers'
 
 const DAY = 24 * 60 * 60 * 1000
 
-let repo: Repository
-let advance: (ms: number) => void
+let ctx: TestContext
 let a: string
 let b: string
 let c: string
 
 beforeEach(async () => {
-  ;({ repo, advance } = testRepository())
-  a = await consentingProfile(repo, 'Alex')
-  b = await consentingProfile(repo, 'Sam')
-  c = await consentingProfile(repo, 'Robin')
+  ctx = await testRepository()
+  a = await consentingProfile(ctx, 'Alex')
+  b = await consentingProfile(ctx, 'Sam')
+  c = await consentingProfile(ctx, 'Robin')
 })
 
 describe('consent (FR-2)', () => {
   test('AC-1.3 changing a consent keeps the old record and adds a new one', async () => {
-    await repo.setConsent(a, 'ai_insights', true)
-    await repo.setConsent(a, 'ai_insights', false)
-    await repo.setConsent(a, 'ai_insights', true)
-    const current = (await repo.getConsents(a)).filter((x) => x.purpose === 'ai_insights')
+    await ctx.repo.setConsent(a, 'ai_insights', true)
+    await ctx.repo.setConsent(a, 'ai_insights', false)
+    await ctx.repo.setConsent(a, 'ai_insights', true)
+    const current = (await ctx.repo.getConsents(a)).filter((x) => x.purpose === 'ai_insights')
     expect(current).toHaveLength(1)
-    expect(current[0].version).toBe(1)
+    const all = await ctx.db.query(`select withdrawn_at from consents where user_id = $1 and purpose = 'ai_insights'`, [a])
+    expect(all.rows).toHaveLength(2)
   })
 
   test('AC-1.4 a profile never sees another profile’s consents', async () => {
-    await repo.setConsent(b, 'therapist_access', true)
-    const mine = await repo.getConsents(a)
+    await ctx.repo.setConsent(b, 'therapist_access', true)
+    const mine = await ctx.repo.getConsents(a)
     expect(mine.every((x) => x.userId === a)).toBe(true)
   })
 
   test('requesting a pair needs consent to store reflections', async () => {
-    const { id: d } = await repo.createProfile('No consent')
-    await expect(repo.requestPair(d, a)).rejects.toThrow(AccessError)
+    const d = await ctx.createUser('NoConsent')
+    await expect(ctx.repo.requestPair(d, ctx.emailOf(a))).rejects.toThrow(AccessError)
   })
 
   test('withdrawing store consent cancels pending requests', async () => {
-    await repo.requestPair(a, b)
-    await repo.setConsent(a, 'store_reflections', false)
-    expect(await repo.listPairRequests(b)).toEqual([])
+    await ctx.repo.requestPair(a, ctx.emailOf(b))
+    await ctx.repo.setConsent(a, 'store_reflections', false)
+    expect(await ctx.repo.listPairRequests(b)).toEqual([])
   })
 })
 
-describe('pair requests (FR-4)', () => {
+describe('pair requests (FR-3, FR-4)', () => {
   test('AC-1.5 cannot request yourself, while paired, or twice', async () => {
-    await expect(repo.requestPair(a, a)).rejects.toThrow(AccessError)
-    await repo.requestPair(a, b)
-    await expect(repo.requestPair(a, c)).rejects.toThrow(AccessError)
-    const [req] = await repo.listPairRequests(b)
-    await repo.respondToPair(b, req.id, true)
-    await expect(repo.requestPair(c, a)).rejects.toThrow(AccessError)
+    await expect(ctx.repo.requestPair(a, ctx.emailOf(a).toUpperCase())).rejects.toThrow(AccessError)
+    await ctx.repo.requestPair(a, ctx.emailOf(b))
+    await expect(ctx.repo.requestPair(a, ctx.emailOf(c))).rejects.toThrow(AccessError)
+    const [req] = await ctx.repo.listPairRequests(b)
+    await ctx.repo.respondToPair(b, req.id, true)
+    await expect(ctx.repo.requestPair(a, ctx.emailOf(c))).rejects.toThrow(AccessError)
   })
 
   test('AC-1.6 only the recipient responds, only the sender cancels', async () => {
-    await repo.requestPair(a, b)
-    const [req] = await repo.listPairRequests(a)
-    await expect(repo.respondToPair(a, req.id, true)).rejects.toThrow(AccessError)
-    await expect(repo.respondToPair(c, req.id, true)).rejects.toThrow(AccessError)
-    await expect(repo.cancelPairRequest(b, req.id)).rejects.toThrow(AccessError)
-    await repo.cancelPairRequest(a, req.id)
-    expect(await repo.listPairRequests(b)).toEqual([])
+    await ctx.repo.requestPair(a, ctx.emailOf(b))
+    const [req] = await ctx.repo.listPairRequests(a)
+    await expect(ctx.repo.respondToPair(a, req.id, true)).rejects.toThrow(AccessError)
+    await expect(ctx.repo.respondToPair(c, req.id, true)).rejects.toThrow(AccessError)
+    await expect(ctx.repo.cancelPairRequest(b, req.id)).rejects.toThrow(AccessError)
+    await ctx.repo.cancelPairRequest(a, req.id)
+    expect(await ctx.repo.listPairRequests(b)).toEqual([])
   })
 
   test('AC-1.7 accepting links exactly those two and cancels other requests involving them', async () => {
-    await repo.requestPair(a, b)
-    await repo.requestPair(c, b)
-    const req = (await repo.listPairRequests(b)).find((r) => r.otherId === a)!
-    await repo.respondToPair(b, req.id, true)
-    expect((await repo.getActiveCouple(a))?.partner.id).toBe(b)
-    expect((await repo.getActiveCouple(b))?.partner.id).toBe(a)
-    expect(await repo.getActiveCouple(c)).toBeNull()
-    expect(await repo.listPairRequests(c)).toEqual([])
+    await ctx.repo.requestPair(a, ctx.emailOf(b))
+    await ctx.repo.requestPair(c, ctx.emailOf(b))
+    const req = (await ctx.repo.listPairRequests(b)).find((r) => r.otherName === 'Alex')!
+    await ctx.repo.respondToPair(b, req.id, true)
+    expect((await ctx.repo.getActiveCouple(a))?.partner.id).toBe(b)
+    expect((await ctx.repo.getActiveCouple(b))?.partner.id).toBe(a)
+    expect(await ctx.repo.getActiveCouple(c)).toBeNull()
+    expect(await ctx.repo.listPairRequests(c)).toEqual([])
   })
 
   test('AC-1.8 once the sender is in another couple, an old request cannot be accepted', async () => {
-    await repo.requestPair(a, b)
-    const [old] = await repo.listPairRequests(b)
-    await repo.requestPair(c, a)
-    const fromC = (await repo.listPairRequests(a)).find((r) => r.direction === 'incoming')!
-    await repo.respondToPair(a, fromC.id, true)
-    expect(await repo.listPairRequests(b)).toEqual([])
-    await expect(repo.respondToPair(b, old.id, true)).rejects.toThrow(AccessError)
-    expect(await repo.getActiveCouple(b)).toBeNull()
+    await ctx.repo.requestPair(a, ctx.emailOf(b))
+    const [old] = await ctx.repo.listPairRequests(b)
+    await ctx.repo.requestPair(c, ctx.emailOf(a))
+    const fromC = (await ctx.repo.listPairRequests(a)).find((r) => r.direction === 'incoming')!
+    await ctx.repo.respondToPair(a, fromC.id, true)
+    expect(await ctx.repo.listPairRequests(b)).toEqual([])
+    await expect(ctx.repo.respondToPair(b, old.id, true)).rejects.toThrow(AccessError)
+    expect(await ctx.repo.getActiveCouple(b)).toBeNull()
   })
 
   test('AC-1.9 requests expire after 7 days', async () => {
-    await repo.requestPair(a, b)
-    const [req] = await repo.listPairRequests(b)
-    advance(7 * DAY)
-    expect(await repo.listPairRequests(a)).toEqual([])
-    expect(await repo.listPairRequests(b)).toEqual([])
-    await expect(repo.respondToPair(b, req.id, true)).rejects.toThrow(AccessError)
+    await ctx.repo.requestPair(a, ctx.emailOf(b))
+    const [req] = await ctx.repo.listPairRequests(b)
+    ctx.advance(7 * DAY)
+    expect(await ctx.repo.listPairRequests(a)).toEqual([])
+    expect(await ctx.repo.listPairRequests(b)).toEqual([])
+    await expect(ctx.repo.respondToPair(b, req.id, true)).rejects.toThrow(AccessError)
   })
 
   test('AC-1.10 a declined request just disappears for the sender', async () => {
-    await repo.requestPair(a, b)
-    const [req] = await repo.listPairRequests(b)
-    await repo.respondToPair(b, req.id, false)
-    expect(await repo.listPairRequests(a)).toEqual([])
-    await expect(repo.requestPair(a, c)).resolves.toBeUndefined()
+    await ctx.repo.requestPair(a, ctx.emailOf(b))
+    const [req] = await ctx.repo.listPairRequests(b)
+    await ctx.repo.respondToPair(b, req.id, false)
+    expect(await ctx.repo.listPairRequests(a)).toEqual([])
+    await expect(ctx.repo.requestPair(a, ctx.emailOf(c))).resolves.toBeUndefined()
   })
 
   test('mutual requests: accepting one cancels the other', async () => {
-    await repo.requestPair(a, b)
-    await repo.requestPair(b, a)
-    const incoming = (await repo.listPairRequests(b)).find((r) => r.direction === 'incoming')!
-    await repo.respondToPair(b, incoming.id, true)
-    expect(await repo.listPairRequests(a)).toEqual([])
-    expect(await repo.listPairRequests(b)).toEqual([])
+    await ctx.repo.requestPair(a, ctx.emailOf(b))
+    await ctx.repo.requestPair(b, ctx.emailOf(a))
+    const incoming = (await ctx.repo.listPairRequests(b)).find((r) => r.direction === 'incoming')!
+    await ctx.repo.respondToPair(b, incoming.id, true)
+    expect(await ctx.repo.listPairRequests(a)).toEqual([])
+    expect(await ctx.repo.listPairRequests(b)).toEqual([])
   })
 
-  test('candidates exclude self and people already in a couple', async () => {
-    await pairUp(repo, b, c)
-    expect(await repo.listPairCandidates(a)).toEqual([])
+  test('AC-3.4 a request to an email reaches whoever signs up with it later', async () => {
+    await ctx.repo.requestPair(a, 'Newcomer@Example.test')
+    expect((await ctx.repo.listPairRequests(a))[0].otherName).toBe('newcomer@example.test')
+    const n = await consentingProfile(ctx, 'Newcomer')
+    const [req] = await ctx.repo.listPairRequests(n)
+    expect(req).toMatchObject({ direction: 'incoming', otherName: 'Alex' })
+  })
+
+  test('AC-3.4 sending a request never reveals whether the email has an account or a partner', async () => {
+    await pairUp(ctx, b, c)
+    await expect(ctx.repo.requestPair(a, ctx.emailOf(b))).resolves.toBeUndefined()
+    const other = await consentingProfile(ctx, 'Other')
+    await expect(ctx.repo.requestPair(other, 'nobody@example.test')).resolves.toBeUndefined()
   })
 })

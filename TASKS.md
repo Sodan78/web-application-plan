@@ -17,7 +17,7 @@ Detailed spec: [SPEC.md → Phase 1](SPEC.md#detailed-spec-phase-1--couple-and-p
 - [x] Home states, invite dialog, accept/decline (AC-1.5..1.10)
 - [x] Settings: privacy choices, end couple dialog, ended notice (AC-1.11..1.13)
 - [x] Keyboard and copy check (AC-1.14, 1.15)
-- [ ] Invite partner by email; one-time, 7-day expiry (FR-3). Needs backend
+- [x] Invite partner by email; one-time, 7-day expiry (FR-3). See Accounts section
 
 ## Phase 2 — Assessment and check-ins
 Detailed spec: [SPEC.md → Phase 2](SPEC.md#detailed-spec-phase-2--self-assessment-and-check-ins).
@@ -35,10 +35,19 @@ Detailed spec: [SPEC.md → Phase 2](SPEC.md#detailed-spec-phase-2--self-assessm
 - [ ] Support resources screen, pause couple features (FR-19)
 - [ ] Quick exit, neutral notifications (FR-20)
 
-## Backend (before Phases 4–5 and any real users)
+## Accounts, backend and look
+Detailed spec: [SPEC.md → Accounts, backend and look](SPEC.md#detailed-spec-accounts-backend-and-look).
+- [x] ADR 0007: Supabase (EU) for auth and data
+- [x] Migration: tables with RLS, one database function per action; all AC-1/AC-2 tests pass against it in PGlite (AC-3.5, AC-3.6)
+- [x] Password sign-up, sign-in, forgot and reset password pages (AC-3.1..3.3)
+- [x] Invite partner by email (FR-3, AC-3.4)
+- [x] Warm and calm theme, welcome page, new layout (NFR-6, AC-3.7)
+- [ ] Create the Supabase project, push the migration, add keys to `.env.local`
+- [ ] Try sign-up, confirm, reset and a full check-in against the real project
+- [ ] Custom SMTP (e.g. Resend, EU) before inviting anyone outside the team
+
+## Backend follow-ups (before Phase 4)
 - [ ] Server function for model calls; API key only server-side (NFR-3)
-- [ ] ADR: choose backend (Supabase EU planned); move repository rules to RLS, repository tests to RLS tests
-- [ ] Real auth (magic link) replaces local profiles (FR-1)
 
 ## Phase 4 — AI reflection guide and insights
 - [ ] Guide system prompt v1 and output checks (FR-27, FR-28, FR-29)

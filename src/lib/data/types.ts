@@ -1,37 +1,13 @@
+/** Shapes returned by the database functions in supabase/migrations. */
 export type Id = string
 
 export type Profile = {
   id: Id
   displayName: string
-  createdAt: string
-}
-
-export type Couple = {
-  id: Id
-  memberIds: Id[]
-  status: 'active' | 'ended'
-  createdAt: string
-  endedAt: string | null
-  /** Internal: who ended it. Never returned to the other partner (AC-1.13). */
-  endedBy?: Id | null
-  /** Internal: members who have seen the "link has ended" notice. */
-  endNoticeSeenBy?: Id[]
-  /** Day of the weekly check-in, 0 = Sunday (FR-8). */
-  checkinWeekday?: Weekday
+  email: string
 }
 
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
-
-/** Private to its owner. Answers and scores never leave the repository (AC-2.1). */
-export type Assessment = {
-  id: Id
-  userId: Id
-  instrument: 'ECR-RS-partner'
-  version: 1
-  answers: number[]
-  scores: { avoidance: number; anxiety: number }
-  completedAt: string
-}
 
 export type ConsentPurpose = 'store_reflections' | 'ai_insights' | 'therapist_access'
 
@@ -45,38 +21,20 @@ export type Consent = {
   withdrawnAt: string | null
 }
 
-export type PairRequest = {
-  id: Id
-  fromId: Id
-  toId: Id
-  status: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'expired'
-  createdAt: string
-  expiresAt: string
-  resolvedAt: string | null
-}
-
-/** What a viewer sees of a pending request. */
+/** What a viewer sees of a pending request. Outgoing ones show the invited email. */
 export type PairRequestView = {
   id: Id
   direction: 'incoming' | 'outgoing'
-  otherId: Id
   otherName: string
   createdAt: string
 }
 
-export type PairCandidate = { id: Id; displayName: string }
-
-export type Checkin = {
+export type ActiveCouple = {
   id: Id
-  coupleId: Id
-  createdAt: string
-  /** Members who have finished. */
-  completedBy: Id[]
-  /** Set when both have finished, or when it auto-closes after 14 days. */
-  closedAt: string | null
+  partner: { id: Id; displayName: string }
+  since: string
 }
 
-/** What a viewer sees of a check-in. */
 export type CheckinView = {
   id: Id
   createdAt: string
@@ -110,7 +68,6 @@ export type Reflection = {
 export type Share = {
   id: Id
   reflectionId: Id
-  /** Copied from the reflection, so the partner never needs to read it. */
   prompt: PromptKey
   checkinId: Id
   coupleId: Id
@@ -118,16 +75,4 @@ export type Share = {
   body: string
   sharedAt: string
   withdrawnAt: string | null
-}
-
-export type Database = {
-  version: 1
-  profiles: Profile[]
-  couples: Couple[]
-  checkins: Checkin[]
-  reflections: Reflection[]
-  shares: Share[]
-  consents: Consent[]
-  pairRequests: PairRequest[]
-  assessments: Assessment[]
 }

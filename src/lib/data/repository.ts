@@ -6,6 +6,7 @@ import type {
   ConsentPurpose,
   Id,
   PairRequestView,
+  PrivateNote,
   Profile,
   PromptKey,
   Reflection,
@@ -81,6 +82,12 @@ export function createRepository(call: Transport) {
       run(viewerId, 'finish_checkin', { p_checkin: checkinId, p_shares: shares }),
     withdrawShare: (viewerId: Id, shareId: Id) => run(viewerId, 'withdraw_share', { p_share: shareId }),
     listShares: (viewerId: Id, checkinId: Id) => get<Share[]>(viewerId, 'list_shares', { p_checkin: checkinId }),
+
+    // Private notes (FR-39..42): author only.
+    savePrivateNote: (viewerId: Id, checkinId: Id, questionKey: string, body: string) =>
+      run(viewerId, 'save_private_note', { p_checkin: checkinId, p_question: questionKey, p_body: body }),
+    listPrivateNotes: (viewerId: Id, checkinId: Id) =>
+      get<PrivateNote[]>(viewerId, 'list_private_notes', { p_checkin: checkinId }),
   }
 }
 

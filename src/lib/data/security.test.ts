@@ -9,7 +9,7 @@ beforeEach(async () => {
   ctx = await testRepository()
 })
 
-const TABLES = ['profiles', 'consents', 'pair_requests', 'couples', 'assessments', 'checkins', 'reflections', 'shares']
+const TABLES = ['private_notes', 'profiles', 'consents', 'pair_requests', 'couples', 'assessments', 'checkins', 'reflections', 'shares']
 
 describe('AC-3.5 database access', () => {
   test('signed-out calls are refused', async () => {

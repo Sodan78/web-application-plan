@@ -30,6 +30,14 @@ Detailed spec: [SPEC.md → Phase 2](SPEC.md#detailed-spec-phase-2--self-assessm
 - [x] Settings: weekday, retake questionnaire (AC-2.12)
 - [x] Keyboard, phone width and copy check (AC-2.14, 2.15)
 
+## Talk it through and deeper questions
+Detailed spec: [SPEC.md → Talk it through](SPEC.md#detailed-spec-talk-it-through-and-deeper-questions). Examples: [docs/design/guide-examples.md](docs/design/guide-examples.md).
+- [x] Fictional test couples and simulation through the real flow (evals/test-couples.json)
+- [x] Migration + tests: private notes, author only (AC-4.5)
+- [x] Question rules with tests (AC-4.6)
+- [x] "For you, privately" card in the joint view (FR-39..42)
+- [x] Talk it through: setup, steps, timer, closing (AC-4.1..4.4)
+
 ## Phase 3 — Safety
 - [ ] Safety screen (FR-18): keyword rules locally; LLM classifier needs backend
 - [ ] Support resources screen, pause couple features (FR-19)

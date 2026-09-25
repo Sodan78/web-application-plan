@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { AccessError, createRepository, type Repository, type Transport } from './repository'
 
 const root = join(import.meta.dirname, '../../..')
-const TABLES = 'shares, reflections, checkins, assessments, couples, pair_requests, consents, profiles'
+const TABLES = 'private_notes, shares, reflections, checkins, assessments, couples, pair_requests, consents, profiles'
 
 let shared: PGlite | null = null
 

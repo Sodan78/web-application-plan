@@ -18,6 +18,7 @@ import { Settings } from '@/routes/Settings'
 import { SetupNeeded } from '@/routes/SetupNeeded'
 import { SignIn } from '@/routes/SignIn'
 import { SignUp } from '@/routes/SignUp'
+import { Talk } from '@/routes/Talk'
 import { Together } from '@/routes/Together'
 import { Welcome } from '@/routes/Welcome'
 
@@ -43,6 +44,7 @@ export default function App() {
                   <Route path="/assessment" element={<Assessment />} />
                   <Route path="/checkin/:id" element={<Checkin />} />
                   <Route path="/checkin/:id/together" element={<Together />} />
+                  <Route path="/checkin/:id/talk" element={<Talk />} />
                 </Route>
               </Route>
             </Route>

@@ -474,3 +474,37 @@ Incoming requests show the sender's name, as before.
 - **AC-3.5** A signed-out visitor can't call any data function; a signed-in user can't read another couple's rows (tested per function).
 - **AC-3.6** All AC-1 and AC-2 tests pass against the database schema.
 - **AC-3.7** The new look meets NFR-6 and AC-1.14 / AC-2.14 (keyboard, labels, phone width, contrast).
+
+---
+
+# Detailed spec: Talk it through and deeper questions
+
+Status: draft. Two rule-based features, no AI, grounded in [the guide examples](docs/design/guide-examples.md). Acceptance criteria are `AC-4.n`.
+
+## Talk it through (guided dialogue)
+An Imago-style dialogue (mirror → validate → empathise) for both partners, together on one device, after a check-in. It turns the conversation prompt into something to do. It's described as "inspired by Imago dialogue"; the app doesn't claim to deliver Imago therapy.
+
+- **FR-34** When both partners have finished a check-in and the couple is active, the joint view offers **Talk it through** (`/checkin/:id/talk`).
+- **FR-35** Setup: choose who shares first, and a topic: one of that person's shares from this check-in, or "Something else".
+- **FR-36** Steps for each round, one screen each, with who's speaking and a suggested time:
+  1. **Share** (sender, ~2 min): "Say one thing, starting with 'I'. Keep it short." The chosen share is shown as a reminder.
+  2. **Mirror** (listener): "What I hear you say is… Did I get that? Is there more?"
+  3. **Validate** (listener): "That makes sense to me, because…"
+  4. **Empathise** (listener): "I imagine you might feel… Is that right?"
+  Then the roles switch for round two, and a closing screen: "Thank each other for listening. What's one thing you'll take with you?"
+- **FR-37** A gentle timer shows elapsed time against the suggestion. It never beeps or stops anyone. Back and Next are always available, and **End** leaves at any time.
+- **FR-38** Nothing said or typed during the dialogue is stored. Only shared items appear on screen.
+
+## Deeper private questions
+- **FR-39** After finishing a check-in, the author sees **For you, privately** in the joint view: up to 3 questions picked from their own reflections, each with a private text box that saves automatically. Note: "These are just for you. They could be good to bring to your therapist."
+- **FR-40** Questions are chosen by rules from the author's own text: words about the past ("again", "as a kid", "familiar"…), "always/never", shame, fear of being left, feeling overwhelmed, freezing. Otherwise one base question per answered prompt, e.g. *Does this feeling feel familiar? When have you felt it before?*
+- **FR-41** Answers are private notes: only the author can read them; they are never shared, never shown to the partner or therapist, and never used for couple suggestions.
+- **FR-42** Questions invite; they never interpret, label or diagnose (P2, P5).
+
+## Acceptance criteria
+- **AC-4.1** Talk it through is offered only when both have finished and the couple is active.
+- **AC-4.2** Setup lists only the chosen sender's shares for this check-in, plus "Something else".
+- **AC-4.3** The dialogue goes Share → Mirror → Validate → Empathise for each partner, then the closing screen; Back, Next and End work by keyboard.
+- **AC-4.4** No data is written during Talk it through.
+- **AC-4.5** Private notes can be read and written only by their author, need store consent, and stay private after the couple ends.
+- **AC-4.6** The same reflections always produce the same questions; at most 3; none contains a style label or clinical word.

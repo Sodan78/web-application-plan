@@ -64,6 +64,13 @@ export type Reflection = {
   createdAt: string
 }
 
+/** An answer to a deeper question. Only its author can ever read it (FR-41). */
+export type PrivateNote = {
+  questionKey: string
+  body: string
+  updatedAt: string
+}
+
 /** A separate copy of what the author chose to share (ADR 0003). */
 export type Share = {
   id: Id

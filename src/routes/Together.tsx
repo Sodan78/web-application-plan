@@ -1,4 +1,6 @@
+import { MessagesSquare } from 'lucide-react'
 import { Navigate, useParams } from 'react-router-dom'
+import { ButtonLink } from '@/components/ButtonLink'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { conversationPrompt, formatDate, PROMPTS, promptLabel } from '@/features/checkin/copy'
+import { DeeperQuestions } from '@/features/checkin/DeeperQuestions'
 import { useCheckin, useCouple, useShares, useViewerId, useViewerMutation } from '@/features/couple/hooks'
 import { repo, type Share } from '@/lib/data'
 
@@ -39,7 +42,7 @@ export function Together() {
   return (
     <>
       <div>
-        <h1 className="text-lg font-semibold">Check-in together</h1>
+        <h1 className="text-3xl">Check-in together</h1>
         <p className="text-sm text-muted-foreground">Started {formatDate(c.createdAt)}</p>
       </div>
 
@@ -89,13 +92,26 @@ export function Together() {
       </div>
 
       {bothFinished && c.coupleActive && (
-        <Card>
+        <Card className="bg-linear-to-br from-[oklch(0.95_0.045_45)] via-card to-[oklch(0.95_0.035_355)]">
           <CardHeader>
             <CardDescription>To talk about together</CardDescription>
-            <CardTitle>{conversationPrompt(c.id)}</CardTitle>
+            <CardTitle className="text-2xl">{conversationPrompt(c.id)}</CardTitle>
           </CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-sm text-muted-foreground">
+              Sit together and take turns: one shares, the other mirrors, validates and empathises. About 10 minutes.
+            </p>
+            <div>
+              <ButtonLink size="lg" to={`/checkin/${c.id}/talk`}>
+                <MessagesSquare aria-hidden="true" />
+                Talk it through
+              </ButtonLink>
+            </div>
+          </CardContent>
         </Card>
       )}
+
+      {c.myStatus === 'finished' && <DeeperQuestions checkinId={c.id} />}
     </>
   )
 }

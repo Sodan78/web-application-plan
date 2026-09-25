@@ -92,3 +92,11 @@ export function useShares(checkinId: string) {
   const viewerId = useViewerId()
   return useQuery({ queryKey: ['shares', viewerId, checkinId], queryFn: () => repo.listShares(viewerId, checkinId) })
 }
+
+export function usePrivateNotes(checkinId: string) {
+  const viewerId = useViewerId()
+  return useQuery({
+    queryKey: ['privateNotes', viewerId, checkinId],
+    queryFn: () => repo.listPrivateNotes(viewerId, checkinId),
+  })
+}
